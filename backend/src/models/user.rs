@@ -25,10 +25,6 @@ pub struct LoginRequest {
     pub password: String,
 }
 
-#[derive(Debug, Serialize)]
-pub struct AuthResponse {
-    pub user: UserResponse,
-}
 
 #[derive(Debug, Serialize)]
 pub struct UserResponse {

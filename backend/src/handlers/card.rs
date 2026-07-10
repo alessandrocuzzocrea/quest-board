@@ -177,7 +177,7 @@ async fn remove_label(
 async fn create_task_list(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
-    Path(card_id): Path<String>,
+    Path(_card_id): Path<String>,
     Json(req): Json<CreateTaskListRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;

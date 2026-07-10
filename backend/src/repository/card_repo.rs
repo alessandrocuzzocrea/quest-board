@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use crate::models::card::{Card, CardWithMembers, UpdateCardRequest};
+use crate::models::card::{Card, UpdateCardRequest};
 use crate::models::list::List;
 use crate::models::user::UserResponse;
 
@@ -146,34 +146,4 @@ pub async fn list_labels(pool: &sqlx::PgPool, card_id: &str) -> Result<Vec<crate
     .bind(card_id)
     .fetch_all(pool)
     .await?)
-}
-
-pub async fn get_card_detail(pool: &sqlx::PgPool, card_id: &str) -> Result<CardWithMembers, AppError> {
-    let card = get_by_id(pool, card_id).await?.ok_or(AppError::NotFound("card not found".into()))?;
-    let members = list_members(pool, card_id).await?;
-    let labels = list_labels(pool, card_id).await?;
-    let comments_count: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM comments WHERE card_id = $1")
-            .bind(card_id)
-            .fetch_one(pool)
-            .await?;
-
-    Ok(CardWithMembers {
-        id: card.id,
-        board_id: card.board_id,
-        list_id: card.list_id,
-        position: card.position,
-        name: card.name,
-        description: card.description,
-        due_date: card.due_date,
-        is_due_completed: card.is_due_completed,
-        is_closed: card.is_closed,
-        created_by: card.created_by,
-        members,
-        labels,
-        comments_count: comments_count.0,
-        checklists: Vec::new(), // loaded separately if needed
-        created_at: card.created_at,
-        updated_at: card.updated_at,
-    })
 }
