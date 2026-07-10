@@ -1,4 +1,5 @@
-use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
+use argon2::password_hash::{PasswordHasher, PasswordVerifier};
+use argon2::password_hash::phc::PasswordHash;
 use argon2::Argon2;
 use axum::extract::State;
 use axum::routing::post;
@@ -31,9 +32,8 @@ async fn register(
         return Err(AppError::BadRequest("email already registered".into()));
     }
 
-    let salt = SaltString::generate(&mut password_hash::rand_core::OsRng);
     let pw_hash = Argon2::default()
-        .hash_password(req.password.as_bytes(), &salt)
+        .hash_password(req.password.as_bytes())
         .map_err(|_| AppError::Internal("failed to hash password".into()))?
         .to_string();
 
