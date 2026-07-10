@@ -24,7 +24,7 @@ uuid = { version = "1", features = ["v4", "serde"] }
 argon2 = { version = "0.6.0-rc.8", features = ["getrandom"] }
 password-hash = "0.6"
 
-tower-sessions = { version = "0.14", features = ["memory-store"] }
+tower-sessions = { version = "0.15", features = ["memory-store"] }
 
 # Time
 chrono = { version = "0.4", features = ["serde"] }
