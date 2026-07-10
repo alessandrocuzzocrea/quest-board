@@ -2,6 +2,7 @@ mod db;
 mod error;
 mod handlers;
 mod models;
+mod repository;
 
 use std::sync::Arc;
 use tower_sessions::cookie::SameSite;

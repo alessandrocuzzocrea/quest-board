@@ -1,0 +1,179 @@
+use crate::error::AppError;
+use crate::models::card::{Card, CardWithMembers, UpdateCardRequest};
+use crate::models::list::List;
+use crate::models::user::UserResponse;
+
+pub async fn create(pool: &sqlx::PgPool, id: &str, board_id: &str, list_id: &str, name: &str, description: &Option<String>, created_by: &str) -> Result<Card, AppError> {
+    sqlx::query(
+        "INSERT INTO cards (id, board_id, list_id, name, description, created_by) VALUES ($1, $2, $3, $4, $5, $6)",
+    )
+    .bind(id)
+    .bind(board_id)
+    .bind(list_id)
+    .bind(name)
+    .bind(description)
+    .bind(created_by)
+    .execute(pool)
+    .await?;
+    get_by_id(pool, id).await.transpose().unwrap()
+}
+
+pub async fn get_by_id(pool: &sqlx::PgPool, card_id: &str) -> Result<Option<Card>, AppError> {
+    Ok(sqlx::query_as("SELECT * FROM cards WHERE id = $1")
+        .bind(card_id)
+        .fetch_optional(pool)
+        .await?)
+}
+
+pub async fn get_list_id(pool: &sqlx::PgPool, list_id: &str) -> Result<Option<List>, AppError> {
+    Ok(sqlx::query_as("SELECT * FROM lists WHERE id = $1")
+        .bind(list_id)
+        .fetch_optional(pool)
+        .await?)
+}
+
+pub async fn update_card(pool: &sqlx::PgPool, card_id: &str, req: &UpdateCardRequest) -> Result<Card, AppError> {
+    if let Some(ref list_id) = req.list_id {
+        let list = get_list_id(pool, list_id).await?.ok_or(AppError::NotFound("target list not found".into()))?;
+        sqlx::query("UPDATE cards SET list_id = $1, board_id = $2, updated_at = NOW() WHERE id = $3")
+            .bind(list_id)
+            .bind(&list.board_id)
+            .bind(card_id)
+            .execute(pool)
+            .await?;
+    }
+    if let Some(ref name) = req.name {
+        sqlx::query("UPDATE cards SET name = $1, updated_at = NOW() WHERE id = $2")
+            .bind(name).bind(card_id).execute(pool).await?;
+    }
+    if let Some(ref description) = req.description {
+        sqlx::query("UPDATE cards SET description = $1, updated_at = NOW() WHERE id = $2")
+            .bind(description).bind(card_id).execute(pool).await?;
+    }
+    if let Some(position) = req.position {
+        sqlx::query("UPDATE cards SET position = $1, updated_at = NOW() WHERE id = $2")
+            .bind(position).bind(card_id).execute(pool).await?;
+    }
+    if let Some(ref due_date) = req.due_date {
+        sqlx::query("UPDATE cards SET due_date = $1, updated_at = NOW() WHERE id = $2")
+            .bind(due_date).bind(card_id).execute(pool).await?;
+    }
+    if let Some(is_due_completed) = req.is_due_completed {
+        sqlx::query("UPDATE cards SET is_due_completed = $1, updated_at = NOW() WHERE id = $2")
+            .bind(is_due_completed).bind(card_id).execute(pool).await?;
+    }
+    if let Some(is_closed) = req.is_closed {
+        sqlx::query("UPDATE cards SET is_closed = $1, updated_at = NOW() WHERE id = $2")
+            .bind(is_closed).bind(card_id).execute(pool).await?;
+    }
+    get_by_id(pool, card_id).await.transpose().unwrap()
+}
+
+pub async fn move_card(pool: &sqlx::PgPool, card_id: &str, list_id: &str, position: f64) -> Result<Card, AppError> {
+    let list = get_list_id(pool, list_id).await?.ok_or(AppError::NotFound("target list not found".into()))?;
+    sqlx::query(
+        "UPDATE cards SET list_id = $1, board_id = $2, position = $3, updated_at = NOW() WHERE id = $4",
+    )
+    .bind(list_id)
+    .bind(&list.board_id)
+    .bind(position)
+    .bind(card_id)
+    .execute(pool)
+    .await?;
+    get_by_id(pool, card_id).await.transpose().unwrap()
+}
+
+pub async fn delete(pool: &sqlx::PgPool, card_id: &str) -> Result<(), AppError> {
+    sqlx::query("DELETE FROM cards WHERE id = $1")
+        .bind(card_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn add_member(pool: &sqlx::PgPool, card_id: &str, user_id: &str) -> Result<(), AppError> {
+    sqlx::query("INSERT OR IGNORE INTO card_members (id, card_id, user_id) VALUES ($1, $2, $3)")
+        .bind(uuid::Uuid::new_v4().to_string())
+        .bind(card_id)
+        .bind(user_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn remove_member(pool: &sqlx::PgPool, card_id: &str, user_id: &str) -> Result<(), AppError> {
+    sqlx::query("DELETE FROM card_members WHERE card_id = $1 AND user_id = $2")
+        .bind(card_id)
+        .bind(user_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn add_label(pool: &sqlx::PgPool, card_id: &str, label_id: &str) -> Result<(), AppError> {
+    sqlx::query("INSERT INTO card_labels (id, card_id, label_id) VALUES ($1, $2, $3)")
+        .bind(uuid::Uuid::new_v4().to_string())
+        .bind(card_id)
+        .bind(label_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn remove_label(pool: &sqlx::PgPool, card_id: &str, label_id: &str) -> Result<(), AppError> {
+    sqlx::query("DELETE FROM card_labels WHERE card_id = $1 AND label_id = $2")
+        .bind(card_id)
+        .bind(label_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn list_members(pool: &sqlx::PgPool, card_id: &str) -> Result<Vec<UserResponse>, AppError> {
+    let users: Vec<crate::models::user::User> = sqlx::query_as(
+        "SELECT u.* FROM users u JOIN card_members cm ON u.id = cm.user_id WHERE cm.card_id = $1",
+    )
+    .bind(card_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(users.into_iter().map(Into::into).collect())
+}
+
+pub async fn list_labels(pool: &sqlx::PgPool, card_id: &str) -> Result<Vec<crate::models::label::Label>, AppError> {
+    Ok(sqlx::query_as(
+        "SELECT l.* FROM labels l JOIN card_labels cl ON l.id = cl.label_id WHERE cl.card_id = $1",
+    )
+    .bind(card_id)
+    .fetch_all(pool)
+    .await?)
+}
+
+pub async fn get_card_detail(pool: &sqlx::PgPool, card_id: &str) -> Result<CardWithMembers, AppError> {
+    let card = get_by_id(pool, card_id).await?.ok_or(AppError::NotFound("card not found".into()))?;
+    let members = list_members(pool, card_id).await?;
+    let labels = list_labels(pool, card_id).await?;
+    let comments_count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM comments WHERE card_id = $1")
+            .bind(card_id)
+            .fetch_one(pool)
+            .await?;
+
+    Ok(CardWithMembers {
+        id: card.id,
+        board_id: card.board_id,
+        list_id: card.list_id,
+        position: card.position,
+        name: card.name,
+        description: card.description,
+        due_date: card.due_date,
+        is_due_completed: card.is_due_completed,
+        is_closed: card.is_closed,
+        created_by: card.created_by,
+        members,
+        labels,
+        comments_count: comments_count.0,
+        checklists: Vec::new(), // loaded separately if needed
+        created_at: card.created_at,
+        updated_at: card.updated_at,
+    })
+}

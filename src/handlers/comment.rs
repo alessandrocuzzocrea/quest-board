@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use crate::error::AppError;
 use crate::models::comment::*;
+use crate::repository;
 use crate::AppState;
 
 pub fn router() -> Router<Arc<AppState>> {
@@ -14,10 +15,8 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/{id}", put(update_comment).delete(delete_comment))
 }
 
-async fn require_user(session: &tower_sessions::Session) -> Result<String, AppError> {
-    session
-        .get::<String>("user_id")
-        .await
+async fn user_id(session: &tower_sessions::Session) -> Result<String, AppError> {
+    session.get("user_id").await
         .map_err(|e| AppError::Internal(e.to_string()))?
         .ok_or(AppError::Unauthorized("not logged in".into()))
 }
@@ -27,34 +26,9 @@ async fn list_comments(
     session: tower_sessions::Session,
     Path(card_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let _user_id = require_user(&session).await?;
-
-    let comments: Vec<Comment> = sqlx::query_as(
-        "SELECT * FROM comments WHERE card_id = $1 ORDER BY created_at",
-    )
-    .bind(&card_id)
-    .fetch_all(&state.db)
-    .await?;
-
-    let mut result: Vec<CommentWithUser> = Vec::new();
-    for c in comments {
-        let user: Option<crate::models::user::User> = sqlx::query_as("SELECT * FROM users WHERE id = $1")
-            .bind(&c.user_id)
-            .fetch_optional(&state.db)
-            .await?;
-
-        result.push(CommentWithUser {
-            id: c.id,
-            card_id: c.card_id,
-            user_id: c.user_id.clone(),
-            user: user.map(Into::into),
-            text: c.text,
-            created_at: c.created_at,
-            updated_at: c.updated_at,
-        });
-    }
-
-    Ok(Json(serde_json::json!(result)))
+    let _uid = user_id(&session).await?;
+    let comments = repository::comment_repo::list_by_card(&state.db, &card_id).await?;
+    Ok(Json(serde_json::json!(comments)))
 }
 
 async fn create_comment(
@@ -62,41 +36,16 @@ async fn create_comment(
     session: tower_sessions::Session,
     Json(req): Json<CreateCommentRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let user_id = require_user(&session).await?;
+    let uid = user_id(&session).await?;
     let id = uuid::Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
 
-    sqlx::query("INSERT INTO comments (id, card_id, user_id, text, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)")
-        .bind(&id)
-        .bind(&req.card_id)
-        .bind(&user_id)
-        .bind(&req.text)
-        .bind(&now)
-        .bind(&now)
-        .execute(&state.db)
-        .await?;
+    let comment = repository::comment_repo::create(&state.db, &id, &req.card_id, &uid, &req.text, &now).await?;
 
-    // Update card's updated_at
-    sqlx::query("UPDATE cards SET updated_at = $1 WHERE id = $2")
-        .bind(&now)
-        .bind(&req.card_id)
-        .execute(&state.db)
-        .await?;
-
-    // Record action
-    sqlx::query("INSERT INTO actions (id, card_id, user_id, action_type, data, created_at) VALUES ($1, $2, $3, 'commentCard', $4, $5)")
-        .bind(uuid::Uuid::new_v4().to_string())
-        .bind(&req.card_id)
-        .bind(&user_id)
-        .bind(serde_json::json!({"comment": {"text": &req.text}}).to_string())
-        .bind(&now)
-        .execute(&state.db)
-        .await?;
-
-    let comment: Comment = sqlx::query_as("SELECT * FROM comments WHERE id = $1")
-        .bind(&id)
-        .fetch_one(&state.db)
-        .await?;
+    repository::action_repo::record(
+        &state.db, &req.card_id, Some(&uid), "commentCard",
+        serde_json::json!({"comment": {"text": &req.text}}),
+    ).await?;
 
     Ok(Json(serde_json::json!(comment)))
 }
@@ -107,20 +56,8 @@ async fn update_comment(
     Path(comment_id): Path<String>,
     Json(req): Json<UpdateCommentRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let _user_id = require_user(&session).await?;
-
-    sqlx::query("UPDATE comments SET text = $1, updated_at = NOW() WHERE id = $2")
-        .bind(&req.text)
-        .bind(&comment_id)
-        .execute(&state.db)
-        .await?;
-
-    let comment: Comment = sqlx::query_as("SELECT * FROM comments WHERE id = $1")
-        .bind(&comment_id)
-        .fetch_optional(&state.db)
-        .await?
-        .ok_or(AppError::NotFound("comment not found".into()))?;
-
+    let _uid = user_id(&session).await?;
+    let comment = repository::comment_repo::update_text(&state.db, &comment_id, &req.text).await?;
     Ok(Json(serde_json::json!(comment)))
 }
 
@@ -129,10 +66,7 @@ async fn delete_comment(
     session: tower_sessions::Session,
     Path(comment_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let _user_id = require_user(&session).await?;
-    sqlx::query("DELETE FROM comments WHERE id = $1")
-        .bind(&comment_id)
-        .execute(&state.db)
-        .await?;
+    let _uid = user_id(&session).await?;
+    repository::comment_repo::delete(&state.db, &comment_id).await?;
     Ok(Json(serde_json::json!({"ok": true})))
 }

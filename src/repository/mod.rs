@@ -1,0 +1,11 @@
+pub mod user_repo;
+pub mod board_repo;
+pub mod list_repo;
+pub mod card_repo;
+pub mod label_repo;
+pub mod comment_repo;
+pub mod attachment_repo;
+pub mod favorite_repo;
+pub mod action_repo;
+pub mod checklist_repo;
+pub mod notification_repo;

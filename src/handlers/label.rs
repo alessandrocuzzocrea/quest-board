@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use crate::error::AppError;
 use crate::models::label::*;
+use crate::repository;
 use crate::AppState;
 
 pub fn router() -> Router<Arc<AppState>> {
@@ -14,10 +15,8 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/{id}", put(update_label).delete(delete_label))
 }
 
-async fn require_user(session: &tower_sessions::Session) -> Result<String, AppError> {
-    session
-        .get::<String>("user_id")
-        .await
+async fn user_id(session: &tower_sessions::Session) -> Result<String, AppError> {
+    session.get("user_id").await
         .map_err(|e| AppError::Internal(e.to_string()))?
         .ok_or(AppError::Unauthorized("not logged in".into()))
 }
@@ -27,15 +26,8 @@ async fn list_labels(
     session: tower_sessions::Session,
     Path(board_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let _user_id = require_user(&session).await?;
-
-    let labels: Vec<Label> = sqlx::query_as(
-        "SELECT * FROM labels WHERE board_id = $1 ORDER BY position, name",
-    )
-    .bind(&board_id)
-    .fetch_all(&state.db)
-    .await?;
-
+    let _uid = user_id(&session).await?;
+    let labels = repository::label_repo::list_by_board(&state.db, &board_id).await?;
     Ok(Json(serde_json::json!(labels)))
 }
 
@@ -44,25 +36,13 @@ async fn create_label(
     session: tower_sessions::Session,
     Json(req): Json<CreateLabelRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let _user_id = require_user(&session).await?;
+    let _uid = user_id(&session).await?;
     let id = uuid::Uuid::new_v4().to_string();
-
-    sqlx::query(
-        "INSERT INTO labels (id, board_id, name, color, position) VALUES ($1, $2, $3, $4, $5)",
-    )
-    .bind(&id)
-    .bind(&req.board_id)
-    .bind(&req.name)
-    .bind(&req.color.unwrap_or_else(|| "#0079bf".into()))
-    .bind(65536.0f64)
-    .execute(&state.db)
-    .await?;
-
-    let label: Label = sqlx::query_as("SELECT * FROM labels WHERE id = $1")
-        .bind(&id)
-        .fetch_one(&state.db)
-        .await?;
-
+    let label = repository::label_repo::create(
+        &state.db, &id, &req.board_id, &req.name,
+        &req.color.unwrap_or_else(|| "#0079bf".into()),
+        65536.0,
+    ).await?;
     Ok(Json(serde_json::json!(label)))
 }
 
@@ -72,33 +52,19 @@ async fn update_label(
     Path(label_id): Path<String>,
     Json(req): Json<UpdateLabelRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let _user_id = require_user(&session).await?;
+    let _uid = user_id(&session).await?;
 
-    if let Some(ref name) = req.name {
-        sqlx::query("UPDATE labels SET name = $1, updated_at = NOW() WHERE id = $2")
-            .bind(name)
-            .bind(&label_id)
-            .execute(&state.db)
-            .await?;
+    if let Some(name) = &req.name {
+        repository::label_repo::update_name(&state.db, &label_id, name).await?;
     }
-    if let Some(ref color) = req.color {
-        sqlx::query("UPDATE labels SET color = $1, updated_at = NOW() WHERE id = $2")
-            .bind(color)
-            .bind(&label_id)
-            .execute(&state.db)
-            .await?;
+    if let Some(color) = &req.color {
+        repository::label_repo::update_color(&state.db, &label_id, color).await?;
     }
     if let Some(position) = req.position {
-        sqlx::query("UPDATE labels SET position = $1, updated_at = NOW() WHERE id = $2")
-            .bind(position)
-            .bind(&label_id)
-            .execute(&state.db)
-            .await?;
+        repository::label_repo::update_position(&state.db, &label_id, position).await?;
     }
 
-    let label: Label = sqlx::query_as("SELECT * FROM labels WHERE id = $1")
-        .bind(&label_id)
-        .fetch_optional(&state.db)
+    let label = repository::label_repo::get_by_id(&state.db, &label_id)
         .await?
         .ok_or(AppError::NotFound("label not found".into()))?;
 
@@ -110,10 +76,7 @@ async fn delete_label(
     session: tower_sessions::Session,
     Path(label_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let _user_id = require_user(&session).await?;
-    sqlx::query("DELETE FROM labels WHERE id = $1")
-        .bind(&label_id)
-        .execute(&state.db)
-        .await?;
+    let _uid = user_id(&session).await?;
+    repository::label_repo::delete(&state.db, &label_id).await?;
     Ok(Json(serde_json::json!({"ok": true})))
 }

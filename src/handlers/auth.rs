@@ -3,11 +3,11 @@ use argon2::Argon2;
 use axum::extract::State;
 use axum::routing::post;
 use axum::{Json, Router};
-use password_hash::rand_core::OsRng;
 use std::sync::Arc;
 
 use crate::error::AppError;
 use crate::models::user::*;
+use crate::repository;
 use crate::AppState;
 
 pub fn router() -> Router<Arc<AppState>> {
@@ -27,44 +27,22 @@ async fn register(
         return Err(AppError::BadRequest("email, password, and name are required".into()));
     }
 
-    let existing: Option<User> = sqlx::query_as("SELECT * FROM users WHERE email = $1")
-        .bind(&req.email)
-        .fetch_optional(&state.db)
-        .await?;
-    if existing.is_some() {
+    if repository::user_repo::find_by_email(&state.db, &req.email).await?.is_some() {
         return Err(AppError::BadRequest("email already registered".into()));
     }
 
-    let salt = SaltString::generate(&mut OsRng);
-    let password_hash = Argon2::default()
+    let salt = SaltString::generate(&mut password_hash::rand_core::OsRng);
+    let pw_hash = Argon2::default()
         .hash_password(req.password.as_bytes(), &salt)
         .map_err(|_| AppError::Internal("failed to hash password".into()))?
         .to_string();
 
     let id = uuid::Uuid::new_v4().to_string();
-    sqlx::query(
-        "INSERT INTO users (id, email, password_hash, name) VALUES ($1, $2, $3, $4)",
-    )
-    .bind(&id)
-    .bind(&req.email)
-    .bind(&password_hash)
-    .bind(&req.name)
-    .execute(&state.db)
-    .await?;
+    repository::user_repo::create(&state.db, &id, &req.email, &pw_hash, &req.name).await?;
 
-    session
-        .insert("user_id", &id)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    session.insert("user_id", &id).await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    Ok(Json(serde_json::json!({
-        "user": {
-            "id": id,
-            "email": req.email,
-            "name": req.name,
-            "role": "user",
-        }
-    })))
+    Ok(Json(serde_json::json!({"user": {"id": id, "email": req.email, "name": req.name, "role": "user"}})))
 }
 
 async fn login(
@@ -72,37 +50,24 @@ async fn login(
     session: tower_sessions::Session,
     Json(req): Json<LoginRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let user: Option<User> = sqlx::query_as("SELECT * FROM users WHERE email = $1")
-        .bind(&req.email)
-        .fetch_optional(&state.db)
-        .await?;
+    let user = repository::user_repo::find_by_email(&state.db, &req.email)
+        .await?
+        .ok_or(AppError::Unauthorized("invalid email or password".into()))?;
 
-    let user = user.ok_or(AppError::Unauthorized("invalid email or password".into()))?;
-
-    let parsed_hash = PasswordHash::new(&user.password_hash)
+    let parsed = PasswordHash::new(&user.password_hash)
         .map_err(|_| AppError::Internal("auth error".into()))?;
 
     Argon2::default()
-        .verify_password(req.password.as_bytes(), &parsed_hash)
+        .verify_password(req.password.as_bytes(), &parsed)
         .map_err(|_| AppError::Unauthorized("invalid email or password".into()))?;
 
-    session
-        .insert("user_id", &user.id)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    session.insert("user_id", &user.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    Ok(Json(serde_json::json!({
-        "user": UserResponse::from(user)
-    })))
+    Ok(Json(serde_json::json!({"user": UserResponse::from(user)})))
 }
 
-async fn logout(
-    session: tower_sessions::Session,
-) -> Result<Json<serde_json::Value>, AppError> {
-    session
-        .flush()
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+async fn logout(session: tower_sessions::Session) -> Result<Json<serde_json::Value>, AppError> {
+    session.flush().await.map_err(|e| AppError::Internal(e.to_string()))?;
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
@@ -110,19 +75,13 @@ async fn me(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let user_id: Option<String> = session
-        .get("user_id")
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
-    let user_id = user_id.ok_or(AppError::Unauthorized("not logged in".into()))?;
+    let user_id: String = session.get("user_id").await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+        .ok_or(AppError::Unauthorized("not logged in".into()))?;
 
-    let user: User = sqlx::query_as("SELECT * FROM users WHERE id = $1")
-        .bind(&user_id)
-        .fetch_optional(&state.db)
+    let user = repository::user_repo::find_by_id(&state.db, &user_id)
         .await?
         .ok_or(AppError::Unauthorized("user not found".into()))?;
 
-    Ok(Json(serde_json::json!({
-        "user": UserResponse::from(user)
-    })))
+    Ok(Json(serde_json::json!({"user": UserResponse::from(user)})))
 }

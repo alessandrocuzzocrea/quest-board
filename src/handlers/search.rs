@@ -21,15 +21,12 @@ async fn search(
     session: tower_sessions::Session,
     Query(query): Query<SearchQuery>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let user_id: Option<String> = session
-        .get("user_id")
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let user_id: String = session.get("user_id").await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+        .ok_or(AppError::Unauthorized("not logged in".into()))?;
 
-    let user_id = user_id.ok_or(AppError::Unauthorized("not logged in".into()))?;
     let pattern = format!("%{}%", query.q);
 
-    // Search cards the user has access to
     let cards: Vec<serde_json::Value> = sqlx::query_as::<_, (String, String, String, String, f64)>(
         "SELECT c.id, c.name, c.board_id, l.name as list_name, c.position
          FROM cards c
@@ -50,16 +47,10 @@ async fn search(
     .await?
     .into_iter()
     .map(|(id, name, board_id, list_name, _pos)| {
-        serde_json::json!({
-            "id": id,
-            "name": name,
-            "board_id": board_id,
-            "list_name": list_name,
-        })
+        serde_json::json!({"id": id, "name": name, "board_id": board_id, "list_name": list_name})
     })
     .collect();
 
-    // Search boards
     let boards: Vec<serde_json::Value> = sqlx::query_as::<_, (String, String)>(
         "SELECT DISTINCT b.id, b.name
          FROM boards b
@@ -78,8 +69,5 @@ async fn search(
     .map(|(id, name)| serde_json::json!({"id": id, "name": name}))
     .collect();
 
-    Ok(Json(serde_json::json!({
-        "cards": cards,
-        "boards": boards,
-    })))
+    Ok(Json(serde_json::json!({"cards": cards, "boards": boards})))
 }
