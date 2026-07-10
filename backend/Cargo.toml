@@ -8,10 +8,10 @@ edition = "2021"
 axum = { version = "0.8", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
 tower = "0.5"
-tower-http = { version = "0.6", features = ["cors", "fs"] }
+tower-http = { version = "0.7", features = ["cors", "fs"] }
 
 # Database
-sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "chrono", "uuid"] }
+sqlx = { version = "0.9", features = ["runtime-tokio", "postgres", "chrono", "uuid"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -24,7 +24,7 @@ uuid = { version = "1", features = ["v4", "serde"] }
 argon2 = { version = "0.6.0-rc.8", features = ["getrandom"] }
 password-hash = "0.6"
 
-tower-sessions = { version = "0.14", features = ["memory-store"] }
+tower-sessions = { version = "0.15", features = ["memory-store"] }
 
 # Time
 chrono = { version = "0.4", features = ["serde"] }
@@ -32,3 +32,5 @@ chrono = { version = "0.4", features = ["serde"] }
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+dotenvy = "0.15"
