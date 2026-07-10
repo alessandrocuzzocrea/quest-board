@@ -31,8 +31,8 @@ async fn list_boards(
 
     let boards: Vec<Board> = sqlx::query_as(
         "SELECT b.* FROM boards b
-         LEFT JOIN board_members bm ON b.id = bm.board_id AND bm.user_id = ?
-         WHERE b.created_by = ? OR bm.user_id = ?
+         LEFT JOIN board_members bm ON b.id = bm.board_id AND bm.user_id = $1
+         WHERE b.created_by = $2 OR bm.user_id = $3
          ORDER BY b.position, b.created_at",
     )
     .bind(&user_id)
@@ -52,7 +52,7 @@ async fn create_board(
     let user_id = require_user(&session).await?;
     let id = uuid::Uuid::new_v4().to_string();
 
-    sqlx::query("INSERT INTO boards (id, name, created_by) VALUES (?, ?, ?)")
+    sqlx::query("INSERT INTO boards (id, name, created_by) VALUES ($1, $2, $3)")
         .bind(&id)
         .bind(&req.name)
         .bind(&user_id)
@@ -60,7 +60,7 @@ async fn create_board(
         .await?;
 
     // Add creator as admin member
-    sqlx::query("INSERT INTO board_members (id, board_id, user_id, role) VALUES (?, ?, ?, 'admin')")
+    sqlx::query("INSERT INTO board_members (id, board_id, user_id, role) VALUES ($1, $2, $3, 'admin')")
         .bind(uuid::Uuid::new_v4().to_string())
         .bind(&id)
         .bind(&user_id)
@@ -71,7 +71,7 @@ async fn create_board(
     let now = chrono::Utc::now().to_rfc3339();
     for (i, name) in ["To Do", "In Progress", "Done"].iter().enumerate() {
         sqlx::query(
-            "INSERT INTO lists (id, board_id, name, position, list_type) VALUES (?, ?, ?, ?, 'active')",
+            "INSERT INTO lists (id, board_id, name, position, list_type) VALUES ($1, $2, $3, $4, 'active')",
         )
         .bind(uuid::Uuid::new_v4().to_string())
         .bind(&id)
@@ -81,7 +81,7 @@ async fn create_board(
         .await?;
     }
 
-    let board: Board = sqlx::query_as("SELECT * FROM boards WHERE id = ?")
+    let board: Board = sqlx::query_as("SELECT * FROM boards WHERE id = $1")
         .bind(&id)
         .fetch_one(&state.db)
         .await?;
@@ -96,14 +96,14 @@ async fn get_board(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _user_id = require_user(&session).await?;
 
-    let board: Board = sqlx::query_as("SELECT * FROM boards WHERE id = ?")
+    let board: Board = sqlx::query_as("SELECT * FROM boards WHERE id = $1")
         .bind(&board_id)
         .fetch_optional(&state.db)
         .await?
         .ok_or(AppError::NotFound("board not found".into()))?;
 
     let lists: Vec<List> = sqlx::query_as(
-        "SELECT * FROM lists WHERE board_id = ? ORDER BY position, created_at",
+        "SELECT * FROM lists WHERE board_id = $1 ORDER BY position, created_at",
     )
     .bind(&board_id)
     .fetch_all(&state.db)
@@ -112,7 +112,7 @@ async fn get_board(
     let members: Vec<crate::models::user::User> = sqlx::query_as(
         "SELECT u.* FROM users u
          JOIN board_members bm ON u.id = bm.user_id
-         WHERE bm.board_id = ?",
+         WHERE bm.board_id = $1",
     )
     .bind(&board_id)
     .fetch_all(&state.db)
@@ -122,7 +122,7 @@ async fn get_board(
     let mut list_with_cards: Vec<ListWithCards> = Vec::new();
     for list in lists {
         let cards: Vec<Card> = sqlx::query_as(
-            "SELECT * FROM cards WHERE list_id = ? ORDER BY position, created_at",
+            "SELECT * FROM cards WHERE list_id = $1 ORDER BY position, created_at",
         )
         .bind(&list.id)
         .fetch_all(&state.db)
@@ -133,7 +133,7 @@ async fn get_board(
             let members: Vec<crate::models::user::User> = sqlx::query_as(
                 "SELECT u.* FROM users u
                  JOIN card_members cm ON u.id = cm.user_id
-                 WHERE cm.card_id = ?",
+                 WHERE cm.card_id = $1",
             )
             .bind(&card.id)
             .fetch_all(&state.db)
@@ -142,21 +142,21 @@ async fn get_board(
             let labels: Vec<crate::models::label::Label> = sqlx::query_as(
                 "SELECT l.* FROM labels l
                  JOIN card_labels cl ON l.id = cl.label_id
-                 WHERE cl.card_id = ?",
+                 WHERE cl.card_id = $1",
             )
             .bind(&card.id)
             .fetch_all(&state.db)
             .await?;
 
             let comments_count: (i64,) = sqlx::query_as(
-                "SELECT COUNT(*) FROM comments WHERE card_id = ?",
+                "SELECT COUNT(*) FROM comments WHERE card_id = $1",
             )
             .bind(&card.id)
             .fetch_one(&state.db)
             .await?;
 
             let checklists: Vec<crate::models::checklist::TaskList> = sqlx::query_as(
-                "SELECT * FROM task_lists WHERE card_id = ? ORDER BY position",
+                "SELECT * FROM task_lists WHERE card_id = $1 ORDER BY position",
             )
             .bind(&card.id)
             .fetch_all(&state.db)
@@ -165,7 +165,7 @@ async fn get_board(
             let mut task_list_with_tasks: Vec<crate::models::checklist::TaskListWithTasks> = Vec::new();
             for tl in checklists {
                 let tasks: Vec<crate::models::checklist::Task> = sqlx::query_as(
-                    "SELECT * FROM tasks WHERE task_list_id = ? ORDER BY position",
+                    "SELECT * FROM tasks WHERE task_list_id = $1 ORDER BY position",
                 )
                 .bind(&tl.id)
                 .fetch_all(&state.db)
@@ -238,21 +238,21 @@ async fn update_board(
     let _user_id = require_user(&session).await?;
 
     if let Some(name) = &req.name {
-        sqlx::query("UPDATE boards SET name = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE boards SET name = $1, updated_at = NOW() WHERE id = $2")
             .bind(name)
             .bind(&board_id)
             .execute(&state.db)
             .await?;
     }
     if let Some(position) = req.position {
-        sqlx::query("UPDATE boards SET position = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE boards SET position = $1, updated_at = NOW() WHERE id = $2")
             .bind(position)
             .bind(&board_id)
             .execute(&state.db)
             .await?;
     }
 
-    let board: Board = sqlx::query_as("SELECT * FROM boards WHERE id = ?")
+    let board: Board = sqlx::query_as("SELECT * FROM boards WHERE id = $1")
         .bind(&board_id)
         .fetch_optional(&state.db)
         .await?
@@ -267,7 +267,7 @@ async fn delete_board(
     Path(board_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _user_id = require_user(&session).await?;
-    sqlx::query("DELETE FROM boards WHERE id = ?")
+    sqlx::query("DELETE FROM boards WHERE id = $1")
         .bind(&board_id)
         .execute(&state.db)
         .await?;

@@ -8,7 +8,7 @@ use tower_sessions::cookie::SameSite;
 use tower_sessions::MemoryStore;
 
 pub struct AppState {
-    pub db: sqlx::SqlitePool,
+    pub db: sqlx::PgPool,
 }
 
 #[tokio::main]
@@ -17,9 +17,9 @@ async fn main() {
         .with_env_filter("quest_board=debug")
         .init();
 
-    let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:quest.db?mode=rwc".into());
+    let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "postgres://postgres:quest@localhost:5432/quest".into());
 
-    let pool = sqlx::SqlitePool::connect(&database_url)
+    let pool = sqlx::PgPool::connect(&database_url)
         .await
         .expect("failed to connect to database");
 

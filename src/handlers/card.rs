@@ -32,7 +32,7 @@ async fn require_user(session: &tower_sessions::Session) -> Result<String, AppEr
 }
 
 async fn record_action(
-    db: &sqlx::SqlitePool,
+    db: &sqlx::PgPool,
     card_id: &str,
     user_id: Option<&str>,
     action_type: &str,
@@ -42,7 +42,7 @@ async fn record_action(
 
     // Get board_id for the card
     let card: Option<crate::models::card::Card> =
-        sqlx::query_as("SELECT * FROM cards WHERE id = ?")
+        sqlx::query_as("SELECT * FROM cards WHERE id = $1")
             .bind(card_id)
             .fetch_optional(db)
             .await?;
@@ -50,7 +50,7 @@ async fn record_action(
     let board_id = card.as_ref().map(|c| c.board_id.clone());
 
     sqlx::query(
-        "INSERT INTO actions (id, card_id, board_id, user_id, action_type, data, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO actions (id, card_id, board_id, user_id, action_type, data, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
     )
     .bind(uuid::Uuid::new_v4().to_string())
     .bind(card_id)
@@ -75,14 +75,14 @@ async fn create_card(
 
     // Get list's board_id
     let list: crate::models::list::List =
-        sqlx::query_as("SELECT * FROM lists WHERE id = ?")
+        sqlx::query_as("SELECT * FROM lists WHERE id = $1")
             .bind(&req.list_id)
             .fetch_optional(&state.db)
             .await?
             .ok_or(AppError::NotFound("list not found".into()))?;
 
     sqlx::query(
-        "INSERT INTO cards (id, board_id, list_id, name, description, created_by) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO cards (id, board_id, list_id, name, description, created_by) VALUES ($1, $2, $3, $4, $5, $6)",
     )
     .bind(&id)
     .bind(&list.board_id)
@@ -102,7 +102,7 @@ async fn create_card(
     )
     .await?;
 
-    let card: Card = sqlx::query_as("SELECT * FROM cards WHERE id = ?")
+    let card: Card = sqlx::query_as("SELECT * FROM cards WHERE id = $1")
         .bind(&id)
         .fetch_one(&state.db)
         .await?;
@@ -117,35 +117,35 @@ async fn get_card(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _user_id = require_user(&session).await?;
 
-    let card: Card = sqlx::query_as("SELECT * FROM cards WHERE id = ?")
+    let card: Card = sqlx::query_as("SELECT * FROM cards WHERE id = $1")
         .bind(&card_id)
         .fetch_optional(&state.db)
         .await?
         .ok_or(AppError::NotFound("card not found".into()))?;
 
     let members: Vec<crate::models::user::User> = sqlx::query_as(
-        "SELECT u.* FROM users u JOIN card_members cm ON u.id = cm.user_id WHERE cm.card_id = ?",
+        "SELECT u.* FROM users u JOIN card_members cm ON u.id = cm.user_id WHERE cm.card_id = $1",
     )
     .bind(&card_id)
     .fetch_all(&state.db)
     .await?;
 
     let labels: Vec<crate::models::label::Label> = sqlx::query_as(
-        "SELECT l.* FROM labels l JOIN card_labels cl ON l.id = cl.label_id WHERE cl.card_id = ?",
+        "SELECT l.* FROM labels l JOIN card_labels cl ON l.id = cl.label_id WHERE cl.card_id = $1",
     )
     .bind(&card_id)
     .fetch_all(&state.db)
     .await?;
 
     let comments: Vec<crate::models::comment::Comment> = sqlx::query_as(
-        "SELECT * FROM comments WHERE card_id = ? ORDER BY created_at",
+        "SELECT * FROM comments WHERE card_id = $1 ORDER BY created_at",
     )
     .bind(&card_id)
     .fetch_all(&state.db)
     .await?;
 
     let checklists: Vec<crate::models::checklist::TaskList> = sqlx::query_as(
-        "SELECT * FROM task_lists WHERE card_id = ? ORDER BY position",
+        "SELECT * FROM task_lists WHERE card_id = $1 ORDER BY position",
     )
     .bind(&card_id)
     .fetch_all(&state.db)
@@ -154,7 +154,7 @@ async fn get_card(
     let mut task_list_with_tasks: Vec<crate::models::checklist::TaskListWithTasks> = Vec::new();
     for tl in checklists {
         let tasks: Vec<crate::models::checklist::Task> = sqlx::query_as(
-            "SELECT * FROM tasks WHERE task_list_id = ? ORDER BY position",
+            "SELECT * FROM tasks WHERE task_list_id = $1 ORDER BY position",
         )
         .bind(&tl.id)
         .fetch_all(&state.db)
@@ -172,7 +172,7 @@ async fn get_card(
     }
 
     let actions: Vec<crate::models::action::Action> = sqlx::query_as(
-        "SELECT * FROM actions WHERE card_id = ? ORDER BY created_at DESC LIMIT 50",
+        "SELECT * FROM actions WHERE card_id = $1 ORDER BY created_at DESC LIMIT 50",
     )
     .bind(&card_id)
     .fetch_all(&state.db)
@@ -196,7 +196,7 @@ async fn update_card(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let user_id = require_user(&session).await?;
 
-    let old_card: Card = sqlx::query_as("SELECT * FROM cards WHERE id = ?")
+    let old_card: Card = sqlx::query_as("SELECT * FROM cards WHERE id = $1")
         .bind(&card_id)
         .fetch_optional(&state.db)
         .await?
@@ -204,14 +204,14 @@ async fn update_card(
 
     let mut list_changed = false;
     if let Some(ref list_id) = req.list_id {
-        let list: crate::models::list::List = sqlx::query_as("SELECT * FROM lists WHERE id = ?")
+        let list: crate::models::list::List = sqlx::query_as("SELECT * FROM lists WHERE id = $1")
             .bind(list_id)
             .fetch_optional(&state.db)
             .await?
             .ok_or(AppError::NotFound("target list not found".into()))?;
 
         sqlx::query(
-            "UPDATE cards SET list_id = ?, board_id = ?, updated_at = datetime('now') WHERE id = ?",
+            "UPDATE cards SET list_id = $1, board_id = $2, updated_at = NOW() WHERE id = $3",
         )
         .bind(list_id)
         .bind(&list.board_id)
@@ -222,42 +222,42 @@ async fn update_card(
     }
 
     if let Some(ref name) = req.name {
-        sqlx::query("UPDATE cards SET name = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE cards SET name = $1, updated_at = NOW() WHERE id = $2")
             .bind(name)
             .bind(&card_id)
             .execute(&state.db)
             .await?;
     }
     if let Some(ref description) = req.description {
-        sqlx::query("UPDATE cards SET description = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE cards SET description = $1, updated_at = NOW() WHERE id = $2")
             .bind(description)
             .bind(&card_id)
             .execute(&state.db)
             .await?;
     }
     if let Some(position) = req.position {
-        sqlx::query("UPDATE cards SET position = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE cards SET position = $1, updated_at = NOW() WHERE id = $2")
             .bind(position)
             .bind(&card_id)
             .execute(&state.db)
             .await?;
     }
     if let Some(ref due_date) = req.due_date {
-        sqlx::query("UPDATE cards SET due_date = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE cards SET due_date = $1, updated_at = NOW() WHERE id = $2")
             .bind(due_date)
             .bind(&card_id)
             .execute(&state.db)
             .await?;
     }
     if let Some(is_due_completed) = req.is_due_completed {
-        sqlx::query("UPDATE cards SET is_due_completed = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE cards SET is_due_completed = $1, updated_at = NOW() WHERE id = $2")
             .bind(is_due_completed)
             .bind(&card_id)
             .execute(&state.db)
             .await?;
     }
     if let Some(is_closed) = req.is_closed {
-        sqlx::query("UPDATE cards SET is_closed = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE cards SET is_closed = $1, updated_at = NOW() WHERE id = $2")
             .bind(is_closed)
             .bind(&card_id)
             .execute(&state.db)
@@ -278,7 +278,7 @@ async fn update_card(
         .await?;
     }
 
-    let card: Card = sqlx::query_as("SELECT * FROM cards WHERE id = ?")
+    let card: Card = sqlx::query_as("SELECT * FROM cards WHERE id = $1")
         .bind(&card_id)
         .fetch_optional(&state.db)
         .await?
@@ -293,7 +293,7 @@ async fn delete_card(
     Path(card_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _user_id = require_user(&session).await?;
-    sqlx::query("DELETE FROM cards WHERE id = ?")
+    sqlx::query("DELETE FROM cards WHERE id = $1")
         .bind(&card_id)
         .execute(&state.db)
         .await?;
@@ -308,20 +308,20 @@ async fn move_card(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let user_id = require_user(&session).await?;
 
-    let old_card: Card = sqlx::query_as("SELECT * FROM cards WHERE id = ?")
+    let old_card: Card = sqlx::query_as("SELECT * FROM cards WHERE id = $1")
         .bind(&card_id)
         .fetch_optional(&state.db)
         .await?
         .ok_or(AppError::NotFound("card not found".into()))?;
 
-    let list: crate::models::list::List = sqlx::query_as("SELECT * FROM lists WHERE id = ?")
+    let list: crate::models::list::List = sqlx::query_as("SELECT * FROM lists WHERE id = $1")
         .bind(&req.list_id)
         .fetch_optional(&state.db)
         .await?
         .ok_or(AppError::NotFound("target list not found".into()))?;
 
     sqlx::query(
-        "UPDATE cards SET list_id = ?, board_id = ?, position = ?, updated_at = datetime('now') WHERE id = ?",
+        "UPDATE cards SET list_id = $1, board_id = $2, position = $3, updated_at = NOW() WHERE id = $4",
     )
     .bind(&req.list_id)
     .bind(&list.board_id)
@@ -342,7 +342,7 @@ async fn move_card(
     )
     .await?;
 
-    let card: Card = sqlx::query_as("SELECT * FROM cards WHERE id = ?")
+    let card: Card = sqlx::query_as("SELECT * FROM cards WHERE id = $1")
         .bind(&card_id)
         .fetch_one(&state.db)
         .await?;
@@ -360,7 +360,7 @@ async fn add_member(
     let member_id = req["user_id"].as_str().ok_or(AppError::BadRequest("user_id required".into()))?;
 
     sqlx::query(
-        "INSERT OR IGNORE INTO card_members (id, card_id, user_id) VALUES (?, ?, ?)",
+        "INSERT OR IGNORE INTO card_members (id, card_id, user_id) VALUES ($1, $2, $3)",
     )
     .bind(uuid::Uuid::new_v4().to_string())
     .bind(&card_id)
@@ -389,7 +389,7 @@ async fn remove_member(
     let _user_id = require_user(&session).await?;
     let member_id = req["user_id"].as_str().ok_or(AppError::BadRequest("user_id required".into()))?;
 
-    sqlx::query("DELETE FROM card_members WHERE card_id = ? AND user_id = ?")
+    sqlx::query("DELETE FROM card_members WHERE card_id = $1 AND user_id = $2")
         .bind(&card_id)
         .bind(member_id)
         .execute(&state.db)
@@ -408,7 +408,7 @@ async fn add_label(
     let label_id = req["label_id"].as_str().ok_or(AppError::BadRequest("label_id required".into()))?;
 
     sqlx::query(
-        "INSERT OR IGNORE INTO card_labels (id, card_id, label_id) VALUES (?, ?, ?)",
+        "INSERT OR IGNORE INTO card_labels (id, card_id, label_id) VALUES ($1, $2, $3)",
     )
     .bind(uuid::Uuid::new_v4().to_string())
     .bind(&card_id)
@@ -428,7 +428,7 @@ async fn remove_label(
     let _user_id = require_user(&session).await?;
     let label_id = req["label_id"].as_str().ok_or(AppError::BadRequest("label_id required".into()))?;
 
-    sqlx::query("DELETE FROM card_labels WHERE card_id = ? AND label_id = ?")
+    sqlx::query("DELETE FROM card_labels WHERE card_id = $1 AND label_id = $2")
         .bind(&card_id)
         .bind(label_id)
         .execute(&state.db)
@@ -448,7 +448,7 @@ async fn create_task_list(
     let id = uuid::Uuid::new_v4().to_string();
 
     sqlx::query(
-        "INSERT INTO task_lists (id, card_id, name, position) VALUES (?, ?, ?, ?)",
+        "INSERT INTO task_lists (id, card_id, name, position) VALUES ($1, $2, $3, $4)",
     )
     .bind(&id)
     .bind(&req.card_id)
@@ -457,7 +457,7 @@ async fn create_task_list(
     .execute(&state.db)
     .await?;
 
-    let tl: crate::models::checklist::TaskList = sqlx::query_as("SELECT * FROM task_lists WHERE id = ?")
+    let tl: crate::models::checklist::TaskList = sqlx::query_as("SELECT * FROM task_lists WHERE id = $1")
         .bind(&id)
         .fetch_one(&state.db)
         .await?;
@@ -474,14 +474,14 @@ async fn update_task_list(
     let _user_id = require_user(&session).await?;
 
     if let Some(name) = req["name"].as_str() {
-        sqlx::query("UPDATE task_lists SET name = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE task_lists SET name = $1, updated_at = NOW() WHERE id = $2")
             .bind(name)
             .bind(&tlid)
             .execute(&state.db)
             .await?;
     }
 
-    let tl: crate::models::checklist::TaskList = sqlx::query_as("SELECT * FROM task_lists WHERE id = ?")
+    let tl: crate::models::checklist::TaskList = sqlx::query_as("SELECT * FROM task_lists WHERE id = $1")
         .bind(&tlid)
         .fetch_optional(&state.db)
         .await?
@@ -496,7 +496,7 @@ async fn delete_task_list(
     Path((_card_id, tlid)): Path<(String, String)>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _user_id = require_user(&session).await?;
-    sqlx::query("DELETE FROM task_lists WHERE id = ?")
+    sqlx::query("DELETE FROM task_lists WHERE id = $1")
         .bind(&tlid)
         .execute(&state.db)
         .await?;
@@ -513,7 +513,7 @@ async fn create_task(
     let id = uuid::Uuid::new_v4().to_string();
 
     sqlx::query(
-        "INSERT INTO tasks (id, task_list_id, name, position) VALUES (?, ?, ?, ?)",
+        "INSERT INTO tasks (id, task_list_id, name, position) VALUES ($1, $2, $3, $4)",
     )
     .bind(&id)
     .bind(&tlid)
@@ -522,7 +522,7 @@ async fn create_task(
     .execute(&state.db)
     .await?;
 
-    let task: crate::models::checklist::Task = sqlx::query_as("SELECT * FROM tasks WHERE id = ?")
+    let task: crate::models::checklist::Task = sqlx::query_as("SELECT * FROM tasks WHERE id = $1")
         .bind(&id)
         .fetch_one(&state.db)
         .await?;
@@ -539,35 +539,35 @@ async fn update_task(
     let _user_id = require_user(&session).await?;
 
     if let Some(ref name) = req.name {
-        sqlx::query("UPDATE tasks SET name = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE tasks SET name = $1, updated_at = NOW() WHERE id = $2")
             .bind(name)
             .bind(&tid)
             .execute(&state.db)
             .await?;
     }
     if let Some(is_completed) = req.is_completed {
-        sqlx::query("UPDATE tasks SET is_completed = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE tasks SET is_completed = $1, updated_at = NOW() WHERE id = $2")
             .bind(is_completed)
             .bind(&tid)
             .execute(&state.db)
             .await?;
     }
     if let Some(position) = req.position {
-        sqlx::query("UPDATE tasks SET position = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE tasks SET position = $1, updated_at = NOW() WHERE id = $2")
             .bind(position)
             .bind(&tid)
             .execute(&state.db)
             .await?;
     }
     if let Some(ref assignee_id) = req.assignee_id {
-        sqlx::query("UPDATE tasks SET assignee_id = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE tasks SET assignee_id = $1, updated_at = NOW() WHERE id = $2")
             .bind(assignee_id)
             .bind(&tid)
             .execute(&state.db)
             .await?;
     }
 
-    let task: crate::models::checklist::Task = sqlx::query_as("SELECT * FROM tasks WHERE id = ?")
+    let task: crate::models::checklist::Task = sqlx::query_as("SELECT * FROM tasks WHERE id = $1")
         .bind(&tid)
         .fetch_optional(&state.db)
         .await?
@@ -582,7 +582,7 @@ async fn delete_task(
     Path((_card_id, _tlid, tid)): Path<(String, String, String)>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _user_id = require_user(&session).await?;
-    sqlx::query("DELETE FROM tasks WHERE id = ?")
+    sqlx::query("DELETE FROM tasks WHERE id = $1")
         .bind(&tid)
         .execute(&state.db)
         .await?;
@@ -597,7 +597,7 @@ async fn list_comments(
     let _user_id = require_user(&session).await?;
 
     let comments: Vec<crate::models::comment::Comment> = sqlx::query_as(
-        "SELECT * FROM comments WHERE card_id = ? ORDER BY created_at",
+        "SELECT * FROM comments WHERE card_id = $1 ORDER BY created_at",
     )
     .bind(&card_id)
     .fetch_all(&state.db)
@@ -614,7 +614,7 @@ async fn list_actions(
     let _user_id = require_user(&session).await?;
 
     let actions: Vec<crate::models::action::Action> = sqlx::query_as(
-        "SELECT * FROM actions WHERE card_id = ? ORDER BY created_at DESC LIMIT 50",
+        "SELECT * FROM actions WHERE card_id = $1 ORDER BY created_at DESC LIMIT 50",
     )
     .bind(&card_id)
     .fetch_all(&state.db)

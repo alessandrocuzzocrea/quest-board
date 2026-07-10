@@ -27,7 +27,7 @@ async fn register(
         return Err(AppError::BadRequest("email, password, and name are required".into()));
     }
 
-    let existing: Option<User> = sqlx::query_as("SELECT * FROM users WHERE email = ?")
+    let existing: Option<User> = sqlx::query_as("SELECT * FROM users WHERE email = $1")
         .bind(&req.email)
         .fetch_optional(&state.db)
         .await?;
@@ -43,7 +43,7 @@ async fn register(
 
     let id = uuid::Uuid::new_v4().to_string();
     sqlx::query(
-        "INSERT INTO users (id, email, password_hash, name) VALUES (?, ?, ?, ?)",
+        "INSERT INTO users (id, email, password_hash, name) VALUES ($1, $2, $3, $4)",
     )
     .bind(&id)
     .bind(&req.email)
@@ -72,7 +72,7 @@ async fn login(
     session: tower_sessions::Session,
     Json(req): Json<LoginRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let user: Option<User> = sqlx::query_as("SELECT * FROM users WHERE email = ?")
+    let user: Option<User> = sqlx::query_as("SELECT * FROM users WHERE email = $1")
         .bind(&req.email)
         .fetch_optional(&state.db)
         .await?;
@@ -116,7 +116,7 @@ async fn me(
         .map_err(|e| AppError::Internal(e.to_string()))?;
     let user_id = user_id.ok_or(AppError::Unauthorized("not logged in".into()))?;
 
-    let user: User = sqlx::query_as("SELECT * FROM users WHERE id = ?")
+    let user: User = sqlx::query_as("SELECT * FROM users WHERE id = $1")
         .bind(&user_id)
         .fetch_optional(&state.db)
         .await?

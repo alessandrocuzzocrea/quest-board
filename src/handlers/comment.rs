@@ -30,7 +30,7 @@ async fn list_comments(
     let _user_id = require_user(&session).await?;
 
     let comments: Vec<Comment> = sqlx::query_as(
-        "SELECT * FROM comments WHERE card_id = ? ORDER BY created_at",
+        "SELECT * FROM comments WHERE card_id = $1 ORDER BY created_at",
     )
     .bind(&card_id)
     .fetch_all(&state.db)
@@ -38,7 +38,7 @@ async fn list_comments(
 
     let mut result: Vec<CommentWithUser> = Vec::new();
     for c in comments {
-        let user: Option<crate::models::user::User> = sqlx::query_as("SELECT * FROM users WHERE id = ?")
+        let user: Option<crate::models::user::User> = sqlx::query_as("SELECT * FROM users WHERE id = $1")
             .bind(&c.user_id)
             .fetch_optional(&state.db)
             .await?;
@@ -66,7 +66,7 @@ async fn create_comment(
     let id = uuid::Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
 
-    sqlx::query("INSERT INTO comments (id, card_id, user_id, text, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)")
+    sqlx::query("INSERT INTO comments (id, card_id, user_id, text, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)")
         .bind(&id)
         .bind(&req.card_id)
         .bind(&user_id)
@@ -77,14 +77,14 @@ async fn create_comment(
         .await?;
 
     // Update card's updated_at
-    sqlx::query("UPDATE cards SET updated_at = ? WHERE id = ?")
+    sqlx::query("UPDATE cards SET updated_at = $1 WHERE id = $2")
         .bind(&now)
         .bind(&req.card_id)
         .execute(&state.db)
         .await?;
 
     // Record action
-    sqlx::query("INSERT INTO actions (id, card_id, user_id, action_type, data, created_at) VALUES (?, ?, ?, 'commentCard', ?, ?)")
+    sqlx::query("INSERT INTO actions (id, card_id, user_id, action_type, data, created_at) VALUES ($1, $2, $3, 'commentCard', $4, $5)")
         .bind(uuid::Uuid::new_v4().to_string())
         .bind(&req.card_id)
         .bind(&user_id)
@@ -93,7 +93,7 @@ async fn create_comment(
         .execute(&state.db)
         .await?;
 
-    let comment: Comment = sqlx::query_as("SELECT * FROM comments WHERE id = ?")
+    let comment: Comment = sqlx::query_as("SELECT * FROM comments WHERE id = $1")
         .bind(&id)
         .fetch_one(&state.db)
         .await?;
@@ -109,13 +109,13 @@ async fn update_comment(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _user_id = require_user(&session).await?;
 
-    sqlx::query("UPDATE comments SET text = ?, updated_at = datetime('now') WHERE id = ?")
+    sqlx::query("UPDATE comments SET text = $1, updated_at = NOW() WHERE id = $2")
         .bind(&req.text)
         .bind(&comment_id)
         .execute(&state.db)
         .await?;
 
-    let comment: Comment = sqlx::query_as("SELECT * FROM comments WHERE id = ?")
+    let comment: Comment = sqlx::query_as("SELECT * FROM comments WHERE id = $1")
         .bind(&comment_id)
         .fetch_optional(&state.db)
         .await?
@@ -130,7 +130,7 @@ async fn delete_comment(
     Path(comment_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _user_id = require_user(&session).await?;
-    sqlx::query("DELETE FROM comments WHERE id = ?")
+    sqlx::query("DELETE FROM comments WHERE id = $1")
         .bind(&comment_id)
         .execute(&state.db)
         .await?;

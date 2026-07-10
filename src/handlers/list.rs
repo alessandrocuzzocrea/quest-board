@@ -30,7 +30,7 @@ async fn create_list(
     let id = uuid::Uuid::new_v4().to_string();
 
     sqlx::query(
-        "INSERT INTO lists (id, board_id, name, position) VALUES (?, ?, ?, ?)",
+        "INSERT INTO lists (id, board_id, name, position) VALUES ($1, $2, $3, $4)",
     )
     .bind(&id)
     .bind(&req.board_id)
@@ -39,7 +39,7 @@ async fn create_list(
     .execute(&state.db)
     .await?;
 
-    let list: List = sqlx::query_as("SELECT * FROM lists WHERE id = ?")
+    let list: List = sqlx::query_as("SELECT * FROM lists WHERE id = $1")
         .bind(&id)
         .fetch_one(&state.db)
         .await?;
@@ -54,14 +54,14 @@ async fn get_list(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _user_id = require_user(&session).await?;
 
-    let list: List = sqlx::query_as("SELECT * FROM lists WHERE id = ?")
+    let list: List = sqlx::query_as("SELECT * FROM lists WHERE id = $1")
         .bind(&list_id)
         .fetch_optional(&state.db)
         .await?
         .ok_or(AppError::NotFound("list not found".into()))?;
 
     let cards: Vec<crate::models::card::Card> = sqlx::query_as(
-        "SELECT * FROM cards WHERE list_id = ? ORDER BY position, created_at",
+        "SELECT * FROM cards WHERE list_id = $1 ORDER BY position, created_at",
     )
     .bind(&list_id)
     .fetch_all(&state.db)
@@ -82,28 +82,28 @@ async fn update_list(
     let _user_id = require_user(&session).await?;
 
     if let Some(name) = &req.name {
-        sqlx::query("UPDATE lists SET name = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE lists SET name = $1, updated_at = NOW() WHERE id = $2")
             .bind(name)
             .bind(&list_id)
             .execute(&state.db)
             .await?;
     }
     if let Some(position) = req.position {
-        sqlx::query("UPDATE lists SET position = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE lists SET position = $1, updated_at = NOW() WHERE id = $2")
             .bind(position)
             .bind(&list_id)
             .execute(&state.db)
             .await?;
     }
     if let Some(color) = &req.color {
-        sqlx::query("UPDATE lists SET color = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE lists SET color = $1, updated_at = NOW() WHERE id = $2")
             .bind(color)
             .bind(&list_id)
             .execute(&state.db)
             .await?;
     }
 
-    let list: List = sqlx::query_as("SELECT * FROM lists WHERE id = ?")
+    let list: List = sqlx::query_as("SELECT * FROM lists WHERE id = $1")
         .bind(&list_id)
         .fetch_optional(&state.db)
         .await?
@@ -118,7 +118,7 @@ async fn delete_list(
     Path(list_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _user_id = require_user(&session).await?;
-    sqlx::query("DELETE FROM lists WHERE id = ?")
+    sqlx::query("DELETE FROM lists WHERE id = $1")
         .bind(&list_id)
         .execute(&state.db)
         .await?;

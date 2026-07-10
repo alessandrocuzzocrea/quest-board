@@ -30,7 +30,7 @@ async fn list_labels(
     let _user_id = require_user(&session).await?;
 
     let labels: Vec<Label> = sqlx::query_as(
-        "SELECT * FROM labels WHERE board_id = ? ORDER BY position, name",
+        "SELECT * FROM labels WHERE board_id = $1 ORDER BY position, name",
     )
     .bind(&board_id)
     .fetch_all(&state.db)
@@ -48,7 +48,7 @@ async fn create_label(
     let id = uuid::Uuid::new_v4().to_string();
 
     sqlx::query(
-        "INSERT INTO labels (id, board_id, name, color, position) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO labels (id, board_id, name, color, position) VALUES ($1, $2, $3, $4, $5)",
     )
     .bind(&id)
     .bind(&req.board_id)
@@ -58,7 +58,7 @@ async fn create_label(
     .execute(&state.db)
     .await?;
 
-    let label: Label = sqlx::query_as("SELECT * FROM labels WHERE id = ?")
+    let label: Label = sqlx::query_as("SELECT * FROM labels WHERE id = $1")
         .bind(&id)
         .fetch_one(&state.db)
         .await?;
@@ -75,28 +75,28 @@ async fn update_label(
     let _user_id = require_user(&session).await?;
 
     if let Some(ref name) = req.name {
-        sqlx::query("UPDATE labels SET name = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE labels SET name = $1, updated_at = NOW() WHERE id = $2")
             .bind(name)
             .bind(&label_id)
             .execute(&state.db)
             .await?;
     }
     if let Some(ref color) = req.color {
-        sqlx::query("UPDATE labels SET color = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE labels SET color = $1, updated_at = NOW() WHERE id = $2")
             .bind(color)
             .bind(&label_id)
             .execute(&state.db)
             .await?;
     }
     if let Some(position) = req.position {
-        sqlx::query("UPDATE labels SET position = ?, updated_at = datetime('now') WHERE id = ?")
+        sqlx::query("UPDATE labels SET position = $1, updated_at = NOW() WHERE id = $2")
             .bind(position)
             .bind(&label_id)
             .execute(&state.db)
             .await?;
     }
 
-    let label: Label = sqlx::query_as("SELECT * FROM labels WHERE id = ?")
+    let label: Label = sqlx::query_as("SELECT * FROM labels WHERE id = $1")
         .bind(&label_id)
         .fetch_optional(&state.db)
         .await?
@@ -111,7 +111,7 @@ async fn delete_label(
     Path(label_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _user_id = require_user(&session).await?;
-    sqlx::query("DELETE FROM labels WHERE id = ?")
+    sqlx::query("DELETE FROM labels WHERE id = $1")
         .bind(&label_id)
         .execute(&state.db)
         .await?;

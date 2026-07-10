@@ -30,7 +30,7 @@ async fn list_attachments(
     let _user_id = require_user(&session).await?;
 
     let attachments: Vec<Attachment> = sqlx::query_as(
-        "SELECT * FROM attachments WHERE card_id = ? ORDER BY created_at",
+        "SELECT * FROM attachments WHERE card_id = $1 ORDER BY created_at",
     )
     .bind(&card_id)
     .fetch_all(&state.db)
@@ -52,7 +52,7 @@ async fn create_link_attachment(
     let link_url = req["url"].as_str().ok_or(AppError::BadRequest("url required".into()))?;
 
     sqlx::query(
-        "INSERT INTO attachments (id, card_id, user_id, name, attachment_type, link_url) VALUES (?, ?, ?, ?, 'link', ?)",
+        "INSERT INTO attachments (id, card_id, user_id, name, attachment_type, link_url) VALUES ($1, $2, $3, $4, 'link', $5)",
     )
     .bind(&id)
     .bind(card_id)
@@ -62,7 +62,7 @@ async fn create_link_attachment(
     .execute(&state.db)
     .await?;
 
-    let attachment: Attachment = sqlx::query_as("SELECT * FROM attachments WHERE id = ?")
+    let attachment: Attachment = sqlx::query_as("SELECT * FROM attachments WHERE id = $1")
         .bind(&id)
         .fetch_one(&state.db)
         .await?;
@@ -76,7 +76,7 @@ async fn delete_attachment(
     Path(attachment_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _user_id = require_user(&session).await?;
-    sqlx::query("DELETE FROM attachments WHERE id = ?")
+    sqlx::query("DELETE FROM attachments WHERE id = $1")
         .bind(&attachment_id)
         .execute(&state.db)
         .await?;
