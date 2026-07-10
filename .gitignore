@@ -2,7 +2,6 @@
 /backend/target
 backend/static/
 node_modules/
-.env
 .svelte-kit/
 .DS_Store
 *.swp
