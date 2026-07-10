@@ -21,8 +21,8 @@ serde_json = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 
 # Auth
-argon2 = "0.5"
-password-hash = { version = "0.5", features = ["rand_core"] }
+argon2 = { version = "0.6.0-rc.8", features = ["getrandom"] }
+password-hash = "0.6"
 
 tower-sessions = { version = "0.14", features = ["memory-store"] }
 
