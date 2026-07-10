@@ -1259,6 +1259,7 @@ dependencies = [
  "argon2",
  "axum",
  "chrono",
+ "dotenvy",
  "password-hash",
  "serde",
  "serde_json",
