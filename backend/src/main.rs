@@ -5,6 +5,7 @@ mod models;
 mod repository;
 
 use std::sync::Arc;
+use tower_http::services::fs::ServeDir;
 use tower_sessions::cookie::SameSite;
 use tower_sessions::MemoryStore;
 
@@ -18,7 +19,8 @@ async fn main() {
         .with_env_filter("quest_board=debug")
         .init();
 
-    let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "postgres://postgres:quest@localhost:5432/quest".into());
+    let database_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "postgres://postgres:quest@localhost:5432/quest".into());
 
     let pool = sqlx::PgPool::connect(&database_url)
         .await
@@ -30,8 +32,8 @@ async fn main() {
     let session_layer = tower_sessions::SessionManagerLayer::new(session_store)
         .with_secure(false)
         .with_same_site(SameSite::Lax);
-    let state = Arc::new(AppState { db: pool });
 
+    let state = Arc::new(AppState { db: pool });
 
     let api = axum::Router::new()
         .nest("/auth", handlers::auth::router())
@@ -47,8 +49,13 @@ async fn main() {
         .layer(tower_http::cors::CorsLayer::permissive())
         .with_state(state);
 
+    let static_files = ServeDir::new("static").not_found_service(
+        tower_http::services::fs::ServeFile::new("static/index.html"),
+    );
+
     let app = axum::Router::new()
         .nest("/api/v1", api)
+        .fallback_service(static_files)
         .layer(session_layer);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3001").await.unwrap();
