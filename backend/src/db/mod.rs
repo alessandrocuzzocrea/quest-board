@@ -16,16 +16,6 @@ pub async fn run_migrations(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
 }
 
 async fn seed_admin(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
-    let exists: Option<(String,)> =
-        sqlx::query_as("SELECT id FROM users WHERE email = $1")
-            .bind("admin")
-            .fetch_optional(pool)
-            .await?;
-
-    if exists.is_some() {
-        return Ok(());
-    }
-
     let id = uuid::Uuid::new_v4().to_string();
     let hash = Argon2::default()
         .hash_password(b"admin")
@@ -33,7 +23,7 @@ async fn seed_admin(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
         .to_string();
 
     sqlx::query(
-        "INSERT INTO users (id, email, password_hash, name, role) VALUES ($1, $2, $3, $4, 'admin')",
+        "INSERT INTO users (id, email, password_hash, name, role) VALUES ($1, $2, $3, $4, 'admin') ON CONFLICT (email) DO NOTHING",
     )
     .bind(&id)
     .bind("admin")
@@ -42,6 +32,5 @@ async fn seed_admin(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
     .execute(pool)
     .await?;
 
-    tracing::info!("seeded default admin user (email: admin, password: admin)");
     Ok(())
 }

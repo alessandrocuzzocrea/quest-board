@@ -1,25 +1,12 @@
-mod db;
-mod error;
-mod handlers;
-mod models;
-mod repository;
-
 use std::sync::Arc;
-use tower_http::services::fs::ServeDir;
-use tower_sessions::cookie::SameSite;
-use tower_sessions::MemoryStore;
-
-pub struct AppState {
-    pub db: sqlx::PgPool,
-}
 
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter("quest_board=debug")
         .init();
-    dotenvy::dotenv().ok();
 
+    dotenvy::dotenv().ok();
 
     let database_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:quest@localhost:5432/quest".into());
@@ -28,37 +15,12 @@ async fn main() {
         .await
         .expect("failed to connect to database");
 
-    db::run_migrations(&pool).await.expect("failed to run migrations");
+    quest_board::db::run_migrations(&pool)
+        .await
+        .expect("failed to run migrations");
 
-    let session_store = MemoryStore::default();
-    let session_layer = tower_sessions::SessionManagerLayer::new(session_store)
-        .with_secure(false)
-        .with_same_site(SameSite::Lax);
-
-    let state = Arc::new(AppState { db: pool });
-
-    let api = axum::Router::new()
-        .nest("/auth", handlers::auth::router())
-        .nest("/boards", handlers::board::router())
-        .nest("/lists", handlers::list::router())
-        .nest("/cards", handlers::card::router())
-        .nest("/labels", handlers::label::router())
-        .nest("/comments", handlers::comment::router())
-        .nest("/attachments", handlers::attachment::router())
-        .nest("/favorites", handlers::favorite::router())
-        .nest("/search", handlers::search::router())
-        .nest("/users", handlers::user_router())
-        .layer(tower_http::cors::CorsLayer::permissive())
-        .with_state(state);
-
-    let static_files = ServeDir::new("static").not_found_service(
-        tower_http::services::fs::ServeFile::new("static/index.html"),
-    );
-
-    let app = axum::Router::new()
-        .nest("/api/v1", api)
-        .fallback_service(static_files)
-        .layer(session_layer);
+    let state = Arc::new(quest_board::AppState { db: pool });
+    let app = quest_board::build_app(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3001").await.unwrap();
     tracing::info!("listening on http://0.0.0.0:3001");
