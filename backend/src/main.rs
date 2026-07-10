@@ -18,6 +18,8 @@ async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter("quest_board=debug")
         .init();
+    dotenvy::dotenv().ok();
+
 
     let database_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:quest@localhost:5432/quest".into());
