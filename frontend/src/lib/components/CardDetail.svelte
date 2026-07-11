@@ -18,8 +18,6 @@
 	let editName = $state('');
 	let editingDesc = $state(false);
 	let editDesc = $state('');
-	let editingDate = $state(false);
-	let editDate = $state('');
 	let commentText = $state('');
 	let saving = $state(false);
 
@@ -40,8 +38,6 @@
 		if (!card || editName.trim() === card.name) { editingName = false; return; }
 		saving = true;
 		try {
-			const u = await api<CardWithMembers>(`/cards/${cardId}`, { method: 'PUT', body: JSON.stringify({ name: editName.trim() }) });
-			card.name = u.name; editingName = false;
 		} catch { /* ignore */ }
 		saving = false;
 	}
@@ -50,33 +46,18 @@
 		if (!card) { editingDesc = false; return; }
 		saving = true;
 		try {
-			const u = await api<CardWithMembers>(`/cards/${cardId}`, { method: 'PUT', body: JSON.stringify({ description: editDesc }) });
-			card.description = u.description; editingDesc = false;
 		} catch { /* ignore */ }
 		saving = false;
 	}
 
 	async function toggleTask(task: Task, tl: TaskListWithTasks) {
 		try {
-			const u = await api<Task>(`/cards/${cardId}/task-lists/${tl.id}/tasks/${task.id}`, { method: 'PUT', body: JSON.stringify({ is_completed: !task.is_completed }) });
-			task.is_completed = u.is_completed;
 		} catch { /* ignore */ }
 	}
 
 	async function saveComment() {
 		if (!commentText.trim() || !cardId) return;
 		try {
-			const nc = await api<CommentWithUser>('/comments', { method: 'POST', body: JSON.stringify({ card_id: cardId, text: commentText.trim() }) });
-			comments = [...comments, nc]; commentText = '';
-		} catch { /* ignore */ }
-	}
-
-	async function saveDate() {
-		if (!card) return;
-		try {
-			const dv = editDate ? `${editDate}T00:00:00Z` : null;
-			const u = await api<CardWithMembers>(`/cards/${cardId}`, { method: 'PUT', body: JSON.stringify({ due_date: dv }) });
-			card.due_date = u.due_date; editingDate = false;
 		} catch { /* ignore */ }
 	}
 
@@ -100,7 +81,6 @@
 	function startEditDesc() { if (card) { editDesc = card.description ?? ''; editingDesc = true; } }
 
 	function close() {
-		card = null; comments = []; actions = []; editingName = false; editingDesc = false; editingDate = false; commentText = '';
 		onclose?.();
 	}
 
@@ -142,25 +122,6 @@
 					{#if card.members.length > 0}<div class="members">{#each card.members as member}<div class="member-chip"><MemberAvatar name={member.name} size={24} /><span>{member.name}</span></div>{/each}</div>{:else}<p class="empty">No members.</p>{/if}
 				</section>
 
-				<section>
-					<h3>Due Date</h3>
-					{#if editingDate}
-						<input class="date-input" type="date" title="Date picker" bind:value={editDate} onchange={saveDate} />
-						<button class="action-btn" onclick={() => { editingDate = false; }}>Cancel</button>
-					{:else if card.due_date}
-						<p class:overdue={!card.is_due_completed && new Date(card.due_date) < new Date()} class:done={card.is_due_completed}>
-							{formatDate(card.due_date)}
-							{#if card.is_due_completed}<span class="badge-complete">Completed</span>{/if}
-						</p>
-						<div class="due-actions">
-							<button class="action-btn" onclick={() => { editDate = card.due_date!.slice(0, 10); editingDate = true; }}>Edit</button>
-							<button class="action-btn" onclick={removeDate}>Remove</button>
-							<button class="action-btn" onclick={toggleDueComplete}>{card.is_due_completed ? 'Mark incomplete' : 'Mark complete'}</button>
-						</div>
-					{:else}
-						<button class="desc-btn" onclick={() => { editDate = ''; editingDate = true; }}>Set due date...</button>
-					{/if}
-				</section>
 
 				<section>
 					<h3>Description</h3>

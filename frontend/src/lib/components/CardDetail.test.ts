@@ -105,3 +105,122 @@ describe('CardDetail (due date)', () => {
 		expect(screen.getByTitle('Date picker')).toBeTruthy();
 	});
 });
+
+describe('CardDetail (comments)', () => {
+	let originalFetch: typeof globalThis.fetch;
+
+	beforeEach(() => {
+		vi.useFakeTimers();
+		originalFetch = globalThis.fetch;
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+		globalThis.fetch = originalFetch;
+	});
+
+	it('shows comment input', async () => {
+		render(CardDetail, { cardId: 'c1', open: true });
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.getByPlaceholderText('Write a comment...')).toBeTruthy();
+	});
+});
+	let originalFetch: typeof globalThis.fetch;
+
+	beforeEach(() => {
+		vi.useFakeTimers();
+		originalFetch = globalThis.fetch;
+<<<<<<< HEAD
+=======
+		globalThis.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ id: 'c1', name: 'Card', description: null, labels: [], members: [], comments_count: 0n, checklists: [], created_by: '', created_at: '', updated_at: '', board_id: '', list_id: '', position: 0, is_due_completed: false, is_closed: false, due_date: null }),
+		});
+>>>>>>> origin/main
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+		globalThis.fetch = originalFetch;
+	});
+
+<<<<<<< HEAD
+	it('shows set date button when no due date', async () => {
+		globalThis.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ id: 'c1', name: 'Card', description: null, due_date: null, labels: [], members: [], comments_count: 0n, checklists: [], created_by: '', created_at: '', updated_at: '', board_id: '', list_id: '', position: 0, is_due_completed: false, is_closed: false }),
+		});
+		render(CardDetail, { cardId: 'c1', open: true });
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.getByText('Set due date...')).toBeTruthy();
+	});
+
+	it('shows due date when set', async () => {
+		globalThis.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ id: 'c1', name: 'Card', description: null, due_date: '2026-08-15T00:00:00Z', labels: [], members: [], comments_count: 0n, checklists: [], created_by: '', created_at: '', updated_at: '', board_id: '', list_id: '', position: 0, is_due_completed: false, is_closed: false }),
+		});
+		render(CardDetail, { cardId: 'c1', open: true });
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.getByText(/Aug 15/)).toBeTruthy();
+	});
+
+	it('shows date input when clicking set date', async () => {
+		globalThis.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ id: 'c1', name: 'Card', description: null, due_date: null, labels: [], members: [], comments_count: 0n, checklists: [], created_by: '', created_at: '', updated_at: '', board_id: '', list_id: '', position: 0, is_due_completed: false, is_closed: false }),
+		});
+		render(CardDetail, { cardId: 'c1', open: true });
+		await vi.advanceTimersByTimeAsync(0);
+		const btn = screen.getByText('Set due date...');
+		btn.click();
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.getByTitle('Date picker')).toBeTruthy();
+=======
+	it('shows comment input', async () => {
+		render(CardDetail, { cardId: 'c1', open: true });
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.getByPlaceholderText('Write a comment...')).toBeTruthy();
+	});
+});
+
+describe('CardDetail (archive)', () => {
+	let originalFetch: typeof globalThis.fetch;
+
+	beforeEach(() => {
+		vi.useFakeTimers();
+		originalFetch = globalThis.fetch;
+		globalThis.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ id: 'c1', name: 'Card', description: null, labels: [], members: [], comments_count: 0n, checklists: [], created_by: '', created_at: '', updated_at: '', board_id: '', list_id: '', position: 0, is_due_completed: false, is_closed: false, due_date: null }),
+		});
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+		globalThis.fetch = originalFetch;
+	});
+
+	it('shows archive button', async () => {
+		render(CardDetail, { cardId: 'c1', open: true });
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.getByText('Archive')).toBeTruthy();
+	});
+
+	it('shows delete button', async () => {
+		render(CardDetail, { cardId: 'c1', open: true });
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.getByText('Delete')).toBeTruthy();
+	});
+
+	it('shows unarchive when card is closed', async () => {
+		globalThis.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ id: 'c1', name: 'Card', description: null, labels: [], members: [], comments_count: 0n, checklists: [], created_by: '', created_at: '', updated_at: '', board_id: '', list_id: '', position: 0, is_due_completed: false, is_closed: true, due_date: null }),
+		});
+		render(CardDetail, { cardId: 'c1', open: true });
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.getByText('Restore')).toBeTruthy();
+>>>>>>> origin/main
+	});
+});
