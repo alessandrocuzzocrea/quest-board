@@ -11,6 +11,10 @@ use crate::models::user::*;
 use crate::repository;
 use crate::AppState;
 
+fn pepper() -> String {
+    crate::db::pepper()
+}
+
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/register", post(register))
@@ -19,7 +23,6 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/me", axum::routing::get(me))
 }
 
- 
 async fn register(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -33,8 +36,9 @@ async fn register(
         return Err(AppError::BadRequest("email already registered".into()));
     }
 
+    let peppered = format!("{}{}", pepper(), req.password);
     let pw_hash = Argon2::default()
-        .hash_password(req.password.as_bytes())
+        .hash_password(peppered.as_bytes())
         .map_err(|_| AppError::Internal("failed to hash password".into()))?
         .to_string();
 
@@ -43,7 +47,6 @@ async fn register(
     Ok(Json(serde_json::json!({"user": {"id": user.id.to_string(), "email": req.email, "name": req.name, "role": "user"}})))
 }
 
- 
 async fn login(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -56,8 +59,9 @@ async fn login(
     let parsed = PasswordHash::new(&user.password_hash)
         .map_err(|_| AppError::Internal("auth error".into()))?;
 
+    let peppered = format!("{}{}", pepper(), req.password);
     Argon2::default()
-        .verify_password(req.password.as_bytes(), &parsed)
+        .verify_password(peppered.as_bytes(), &parsed)
         .map_err(|_| AppError::Unauthorized("invalid email or password".into()))?;
 
     session.insert("user_id", &user.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
@@ -65,7 +69,6 @@ async fn login(
     Ok(Json(serde_json::json!({"user": UserResponse::from(user)})))
 }
 
- 
 async fn logout(session: tower_sessions::Session) -> Result<Json<serde_json::Value>, AppError> {
     session.flush().await.map_err(|e| AppError::Internal(e.to_string()))?;
     Ok(Json(serde_json::json!({"ok": true})))

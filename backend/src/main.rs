@@ -8,6 +8,10 @@ async fn main() {
 
     dotenvy::dotenv().ok();
 
+    if std::env::var("APP_SECRET").unwrap_or_default().is_empty() {
+        tracing::error!("APP_SECRET is not set — the app will panic on any login/register attempt. Add APP_SECRET=<random> to .env");
+    }
+
     let database_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:quest@localhost:5432/quest".into());
 
