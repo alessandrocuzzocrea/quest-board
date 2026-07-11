@@ -3,7 +3,7 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::json;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum AppError {
     Unauthorized(String),
     NotFound(String),

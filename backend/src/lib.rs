@@ -16,6 +16,7 @@ use session::PgSessionStore;
 
 pub struct AppState {
     pub db: sqlx::PgPool,
+    pub ai_client: Arc<dyn handlers::ai::LlmClient>,
 }
 
 pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router {

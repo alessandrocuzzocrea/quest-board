@@ -15,7 +15,7 @@ async fn setup() -> (axum::Router, sqlx::PgPool) {
     sqlx::query("DROP TABLE IF EXISTS api_keys, sessions, favorites, notifications, actions, tasks, task_lists, attachments, comments, card_labels, labels, card_members, cards, lists, board_members, boards, users CASCADE")
         .execute(&pool).await.ok();
     quest_board::db::run_migrations(&pool).await.unwrap();
-    let state = Arc::new(AppState { db: pool.clone() });
+    let state = Arc::new(AppState { db: pool.clone(), ai_client: Arc::new(quest_board::handlers::ai::RealLlmClient) });
     let app = quest_board::build_app(pool.clone(), state).await;
     (app, pool)
 }
