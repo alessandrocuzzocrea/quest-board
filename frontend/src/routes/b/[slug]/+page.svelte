@@ -12,6 +12,7 @@
 	let user = $state<User | null>(null);
 	let error = $state('');
 	let newListName = $state('');
+	let undoAction = $state<{cardId: string; from: string; to: string; fromPos: number} | null>(null);
 
 	async function checkSession() {
 		try {
@@ -65,10 +66,30 @@
 				method: 'PUT',
 				body: JSON.stringify({ list_id: targetListId, position: card.position }),
 			});
+			if (targetListId !== sourceListId) {
+				undoAction = { cardId, from: sourceListId, to: targetListId, fromPos: card.position };
+			}
 		} catch (e) {
-			// Revert is complex with reordering — just log the error
 			error = e instanceof Error ? e.message : 'Failed to move card';
 		}
+	}
+
+	async function undo() {
+		if (!undoAction) return;
+		const a = undoAction;
+		undoAction = null;
+		const src = columns.find(c => c.id === a.from);
+		const tgt = columns.find(c => c.id === a.to);
+		if (!src || !tgt) return;
+		const idx = tgt.cards.findIndex(c => c.id === a.cardId);
+		if (idx === -1) return;
+		const [card] = tgt.cards.splice(idx, 1);
+		card.list_id = a.from;
+		card.position = a.fromPos;
+		src.cards.push(card);
+		columns = columns;
+		try { await api(`/cards/${a.cardId}/move`, { method: 'PUT', body: JSON.stringify({ list_id: a.from, position: a.fromPos }) }); }
+		catch { /* ignore */ }
 	}
 
 	async function addCard(listId: string, name: string) {
@@ -125,6 +146,7 @@
 	}
 
 	$effect(() => { checkSession(); });
+
 </script>
 
 <svelte:head>
@@ -177,6 +199,12 @@
 	onclose={() => selectedCardId = null}
 />
 
+{#if undoAction}
+	<div class="undo-toast">
+		<span>Card moved.</span>
+		<button onclick={undo}>Undo</button>
+	</div>
+{/if}
 <style>
 	.board-header {
 		display: flex;
@@ -238,5 +266,5 @@
 	}
 	.add-list-input::placeholder {
 		color: rgba(255,255,255,0.7);
-	}
-</style>
+.undo-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 8px; display: flex; align-items: center; gap: 12px; font-size: 14px; z-index: 200; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+.undo-toast button { background: var(--accent, #0079bf); color: white; border: none; border-radius: 4px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 13px; }
