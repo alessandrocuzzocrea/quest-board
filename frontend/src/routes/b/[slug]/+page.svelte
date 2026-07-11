@@ -136,6 +136,7 @@
 			onDeleteCard={deleteCard}
 			onDeleteList={deleteList}
 		/>
+	{/each}
 
 	<div class="add-list-col">
 		<input
