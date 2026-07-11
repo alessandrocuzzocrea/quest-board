@@ -1,0 +1,7 @@
+node_modules/
+frontend/
+.git/
+target/
+*.md
+.env
+.env.test
