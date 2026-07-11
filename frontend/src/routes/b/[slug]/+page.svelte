@@ -11,6 +11,7 @@
 	let selectedCardId = $state<string | null>(null);
 	let user = $state<User | null>(null);
 	let error = $state('');
+	let newListName = $state('');
 
 	async function checkSession() {
 		try {
@@ -68,6 +69,38 @@
 		}
 	}
 
+	async function addCard(listId: string, name: string) {
+		try {
+			const card = await api<CardWithMembers>('/cards', {
+				method: 'POST',
+				body: JSON.stringify({ list_id: listId, name }),
+			});
+			const col = columns.find(c => c.id === listId);
+			if (col) {
+				col.cards.push(card);
+				columns = columns;
+			}
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to create card';
+		}
+	}
+
+	async function addList() {
+		const name = newListName.trim();
+		if (!name) return;
+		try {
+			const list = await api<ListWithCards>('/lists', {
+				method: 'POST',
+				body: JSON.stringify({ board_id: initial.board.id, name }),
+			});
+			list.cards = [];
+			columns = [...columns, list];
+			newListName = '';
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to create list';
+		}
+	}
+
 	$effect(() => { checkSession(); });
 
 {#if error}
@@ -84,8 +117,19 @@
 			cardCount={col.cards.length}
 			onDropCard={moveCard}
 			onCardClick={(id) => selectedCardId = id}
+			onAddCard={addCard}
 		/>
 	{/each}
+
+	<div class="add-list-col">
+		<input
+			class="add-list-input"
+			type="text"
+			placeholder="+ Add list"
+			bind:value={newListName}
+			onkeydown={(e) => { if (e.key === 'Enter') addList(); }}
+		/>
+	</div>
 </div>
 
 <CardDetail
@@ -129,5 +173,31 @@
 		padding: 16px 20px;
 		overflow-x: auto;
 		flex: 1;
+		align-items: flex-start;
+	}
+	.add-list-col {
+		background: rgba(0,0,0,0.08);
+		border-radius: 10px;
+		padding: 10px;
+		width: 280px;
+		min-width: 280px;
+		flex-shrink: 0;
+	}
+	.add-list-input {
+		width: 100%;
+		border: none;
+		border-radius: 6px;
+		padding: 8px 10px;
+		font-size: 14px;
+		background: transparent;
+		color: white;
+		outline: none;
+		box-sizing: border-box;
+	}
+	.add-list-input:focus {
+		background: rgba(255,255,255,0.2);
+	}
+	.add-list-input::placeholder {
+		color: rgba(255,255,255,0.7);
 	}
 </style>
