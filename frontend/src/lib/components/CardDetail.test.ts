@@ -58,3 +58,50 @@ describe('CardDetail (editing)', () => {
 		expect(screen.getByText('Add a description...')).toBeTruthy();
 	});
 });
+
+describe('CardDetail (due date)', () => {
+	let originalFetch: typeof globalThis.fetch;
+
+	beforeEach(() => {
+		vi.useFakeTimers();
+		originalFetch = globalThis.fetch;
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+		globalThis.fetch = originalFetch;
+	});
+
+	it('shows set date button when no due date', async () => {
+		globalThis.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ id: 'c1', name: 'Card', description: null, due_date: null, labels: [], members: [], comments_count: 0n, checklists: [], created_by: '', created_at: '', updated_at: '', board_id: '', list_id: '', position: 0, is_due_completed: false, is_closed: false }),
+		});
+		render(CardDetail, { cardId: 'c1', open: true });
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.getByText('Set due date...')).toBeTruthy();
+	});
+
+	it('shows due date when set', async () => {
+		globalThis.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ id: 'c1', name: 'Card', description: null, due_date: '2026-08-15T00:00:00Z', labels: [], members: [], comments_count: 0n, checklists: [], created_by: '', created_at: '', updated_at: '', board_id: '', list_id: '', position: 0, is_due_completed: false, is_closed: false }),
+		});
+		render(CardDetail, { cardId: 'c1', open: true });
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.getByText(/Aug 15/)).toBeTruthy();
+	});
+
+	it('shows date input when clicking set date', async () => {
+		globalThis.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ id: 'c1', name: 'Card', description: null, due_date: null, labels: [], members: [], comments_count: 0n, checklists: [], created_by: '', created_at: '', updated_at: '', board_id: '', list_id: '', position: 0, is_due_completed: false, is_closed: false }),
+		});
+		render(CardDetail, { cardId: 'c1', open: true });
+		await vi.advanceTimersByTimeAsync(0);
+		const btn = screen.getByText('Set due date...');
+		btn.click();
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.getByTitle('Date picker')).toBeTruthy();
+	});
+});
