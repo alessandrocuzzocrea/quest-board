@@ -52,6 +52,7 @@ mod tests {
 
     #[test]
     fn test_password_hash_verify_cycle() {
+        std::env::set_var("APP_SECRET", "test-secret-for-ci");
         let password = "admin";
         let p = pepper();
         let peppered = format!("{}{}", p, password);
@@ -71,6 +72,7 @@ mod tests {
 
     #[test]
     fn test_admin_login_hash_stability() {
+        std::env::set_var("APP_SECRET", "test-secret-for-ci");
         // Simulates exactly what seed_admin does, then verifies
         // This catches argon2 library version mismatches early.
         let p = pepper();

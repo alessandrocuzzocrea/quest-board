@@ -8,6 +8,7 @@ static SETUP_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 async fn setup() -> (axum::Router, sqlx::PgPool) {
     let _guard = SETUP_MUTEX.lock().await;
+    std::env::set_var("APP_SECRET", "test-secret-for-ci");
 
     let database_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:quest@localhost:5432/quest_test".into());
