@@ -18,8 +18,8 @@
 		error = '';
 		try {
 			const data = isRegister
-				? await api('/auth/register', { method: 'POST', body: JSON.stringify({ email: login, password, name }) })
-				: await api('/auth/login', { method: 'POST', body: JSON.stringify({ email: login, password }) });
+				? await api<{ user: User }>('/auth/register', { method: 'POST', body: JSON.stringify({ email: login, password, name }) })
+				: await api<{ user: User }>('/auth/login', { method: 'POST', body: JSON.stringify({ email: login, password }) });
 			user = data.user;
 			await loadBoards();
 		} catch (err) {
@@ -35,7 +35,7 @@
 
 	async function checkSession() {
 		try {
-			const data = await api('/auth/me');
+			const data = await api<{ user: User }>('/auth/me');
 			user = data.user;
 			await loadBoards();
 		} catch {

@@ -14,7 +14,7 @@
 
 	async function checkSession() {
 		try {
-			const res = await api('/auth/me');
+			const res = await api<{ user: User }>('/auth/me');
 			user = res.user;
 		} catch {
 			user = null;
