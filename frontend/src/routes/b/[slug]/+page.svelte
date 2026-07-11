@@ -71,7 +71,6 @@
 				showUndo({ type: 'moveCard', cardId, sourceListId, targetListId, position: card.position });
 			}
 		} catch (e) {
-			// Revert is complex with reordering — just log the error
 			error = e instanceof Error ? e.message : 'Failed to move card';
 		}
 	}
@@ -114,6 +113,7 @@
 			error = e instanceof Error ? e.message : 'Failed to undo move';
 		}
 	}
+
 
 	async function addCard(listId: string, name: string) {
 		try {
@@ -169,6 +169,7 @@
 	}
 
 	$effect(() => { checkSession(); });
+
 </script>
 
 <svelte:head>
@@ -227,7 +228,6 @@
 		<button onclick={performUndo} class="undo-button">Undo</button>
 	</div>
 {/if}
-
 <style>
 	.board-header {
 		display: flex;
