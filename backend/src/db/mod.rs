@@ -1,11 +1,10 @@
 use argon2::password_hash::PasswordHasher;
 use argon2::Argon2;
 
-/// Returns the server-side server secret used for password peppering.
-/// Prevents hash cracking even if the database is leaked.
-/// Defaults to empty string (no pepper) when not configured.
-fn pepper() -> String {
-    std::env::var("APP_SECRET").unwrap_or_default()
+/// Returns the server-side secret used for password peppering.
+/// Must be set via `APP_SECRET` env var in production.
+pub(crate) fn pepper() -> String {
+    std::env::var("APP_SECRET").expect("APP_SECRET must be set. Add APP_SECRET=<random> to .env")
 }
 
 pub async fn run_migrations(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {

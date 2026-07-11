@@ -12,7 +12,7 @@ use crate::repository;
 use crate::AppState;
 
 fn pepper() -> String {
-    std::env::var("APP_SECRET").unwrap_or_default()
+    crate::db::pepper()
 }
 
 pub fn router() -> Router<Arc<AppState>> {
