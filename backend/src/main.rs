@@ -23,7 +23,7 @@ async fn main() {
         .await
         .expect("failed to run migrations");
 
-    let state = Arc::new(quest_board::AppState { db: pool.clone() });
+    let state = Arc::new(quest_board::AppState { db: pool.clone(), ai_client: Arc::new(quest_board::handlers::ai::RealLlmClient) });
     let app = quest_board::build_app(pool, state).await;
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3001").await.unwrap();

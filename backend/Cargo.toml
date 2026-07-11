@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+async-trait = "0.1"
 # Web framework
 axum = { version = "0.8", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
@@ -35,9 +36,9 @@ tower-sessions = { version = "0.15", features = ["memory-store"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-async-trait = "0.1"
 time = { version = "0.3", features = ["serde"] }
 dotenvy = "0.15"
 chrono = { version = "0.4.45", features = ["serde"] }
 tower-sessions-core = "0.15"
 
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
