@@ -18,16 +18,31 @@ docker run -d --name quest-pg \
   -p 5432:5432 \
   postgres:17
 
-# 2. Start the backend
-cd backend
-DATABASE_URL="postgres://postgres:quest@localhost:5432/quest" cargo run
-# API at http://localhost:3001/api/v1
+# 2. Set up environment
+cp backend/.env.example backend/.env
+# Edit backend/.env and set a random APP_SECRET
 
-# 3. (another terminal) Start the frontend dev server
+# 3. Start both servers with auto-reload (from frontend/)
+cd frontend
+npm install
+cargo install cargo-watch          # one-time, for backend auto-reload
+npm run dev
+# Backend at http://localhost:3001 — auto-reloads on src/ changes
+# Frontend at http://localhost:5173 — HMR on any change
+# (append --host for LAN access: npm run dev -- --host)
+```
+
+## Manual start (without auto-reload)
+
+```sh
+# Terminal 1: backend
+cd backend
+APP_SECRET=<your-secret> cargo run
+
+# Terminal 2: frontend
 cd frontend
 npm install
 npm run dev
-# App at http://localhost:5173 — proxies /api/* to the backend
 ```
 
 ## Production build
