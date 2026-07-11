@@ -1,3 +1,4 @@
+pub mod health;
 pub mod auth;
 pub mod health;
 pub mod api_key;
