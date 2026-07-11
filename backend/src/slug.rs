@@ -31,4 +31,12 @@ mod tests {
             (0..1000).map(|_| generate_slug()).collect();
         assert_eq!(slugs.len(), 1000);
     }
+    #[test]
+    fn slug_not_hex_style() {
+        // Slug should look YouTube-like, not a hex UUID fragment.
+        // At minimum it must contain letters outside 0-9a-f range.
+        let slug = generate_slug();
+        let has_wide_chars = slug.chars().any(|c| c > 'f' || (c > '9' && c < 'a'));
+        assert!(has_wide_chars, "slug {:?} looks like hex, expected base62 YouTube-style", slug);
+    }
 }
