@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod api_key;
 pub mod attachment;
 pub mod board;
 pub mod card;
