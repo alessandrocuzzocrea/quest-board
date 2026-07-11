@@ -14,9 +14,6 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },
-  "overrides": {
-    "cookie": "0.7.0"
-  },
   "keywords": [],
   "author": "",
   "license": "ISC",
