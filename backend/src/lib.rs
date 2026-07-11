@@ -35,6 +35,7 @@ pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router
         .nest("/attachments", handlers::attachment::router())
         .nest("/favorites", handlers::favorite::router())
         .nest("/search", handlers::search::router())
+        .nest("/health", handlers::health::router())
         .nest("/api-keys", handlers::api_key::router())
         .nest("/ai", handlers::ai::router())
         .nest("/users", handlers::user_router())
