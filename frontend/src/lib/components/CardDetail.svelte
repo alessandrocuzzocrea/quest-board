@@ -93,6 +93,22 @@
 	function startEditName() { if (card) { editName = card.name; editingName = true; } }
 	function startEditDesc() { if (card) { editDesc = card.description ?? ''; editingDesc = true; } }
 
+	async function archiveCard() {
+		if (!card) return;
+		try {
+			const u = await api<CardWithMembers>(`/cards/${cardId}`, { method: 'PUT', body: JSON.stringify({ is_closed: !card.is_closed }) });
+			card.is_closed = u.is_closed;
+		} catch { /* ignore */ }
+	}
+
+	async function deleteCard() {
+		if (!card || !confirm('Delete this card?')) return;
+		try {
+			await api(`/cards/${cardId}`, { method: 'DELETE' });
+			close();
+		} catch { /* ignore */ }
+	}
+
 	function close() {
 		card = null; comments = []; actions = []; editingName = false; editingDesc = false; commentText = '';
 		onclose?.();
@@ -152,6 +168,10 @@
 				</section>
 
 				{#if actions.length > 0}<section><h3>Activity</h3><ul class="activity-list">{#each actions as act}<li>{act.type} — {formatDate(act.created_at)}</li>{/each}</ul></section>{/if}
+				<section>
+					<button class="danger-btn" onclick={archiveCard}>{card.is_closed ? 'Restore' : 'Archive'}</button>
+					<button class="danger-btn" onclick={deleteCard}>Delete</button>
+				</section>
 			{:else}
 				<div class="error">Could not load card.</div>
 			{/if}
@@ -188,6 +208,8 @@
 	.comment-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 	.comment-date { font-size: 11px; color: #999; margin-left: auto; }
 	.comment-text { margin: 0; line-height: 1.4; color: #333; }
+.danger-btn { background: none; border: 1px solid #d04444; color: #d04444; border-radius: 6px; padding: 8px 16px; font-size: 13px; cursor: pointer; font-weight: 600; margin-right: 8px; }
+.danger-btn:hover { background: #d04444; color: white; }
 	.comment-form { margin-top: 8px; }
 	.comment-input { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; box-sizing: border-box; font-family: inherit; outline: none; }
 	.comment-input:focus { border-color: var(--accent, #0079bf); }
