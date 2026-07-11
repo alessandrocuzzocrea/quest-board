@@ -73,7 +73,6 @@ let chatOpen = $state(false);
 				showUndo({ type: 'moveCard', cardId, sourceListId, targetListId, position: card.position });
 			}
 		} catch (e) {
-			// Revert is complex with reordering — just log the error
 			error = e instanceof Error ? e.message : 'Failed to move card';
 		}
 	}
@@ -116,6 +115,7 @@ let chatOpen = $state(false);
 			error = e instanceof Error ? e.message : 'Failed to undo move';
 		}
 	}
+
 
 	async function addCard(listId: string, name: string) {
 		try {
@@ -171,6 +171,7 @@ let chatOpen = $state(false);
 	}
 
 	$effect(() => { checkSession(); });
+
 </script>
 
 <svelte:head>
@@ -237,8 +238,11 @@ let chatOpen = $state(false);
 		<button onclick={performUndo} class="undo-button">Undo</button>
 	</div>
 {/if}
+<<<<<<< HEAD
 >>>>>>> main
 
+=======
+>>>>>>> origin/main
 <style>
 	.board-header {
 		display: flex;
