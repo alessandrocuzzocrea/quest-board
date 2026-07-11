@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+
 const mockRedirect = vi.fn();
 vi.mock('@sveltejs/kit', () => ({
 	redirect: (status: number, location: string) => {
@@ -7,6 +8,7 @@ vi.mock('@sveltejs/kit', () => ({
 		throw new Error(`Redirect ${status}: ${location}`);
 	},
 }));
+
 
 function makeFetch(status: number, body: unknown) {
 	return vi.fn().mockResolvedValue({
@@ -18,7 +20,6 @@ function makeFetch(status: number, body: unknown) {
 
 describe('/b/[slug] auth guard', () => {
 	const slug = 'test-board';
-
 	beforeEach(() => {
 		vi.clearAllMocks();
 	});
