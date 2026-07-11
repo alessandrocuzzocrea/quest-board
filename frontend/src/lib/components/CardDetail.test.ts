@@ -82,3 +82,43 @@ describe('CardDetail (comments)', () => {
 		expect(screen.getByPlaceholderText('Write a comment...')).toBeTruthy();
 	});
 });
+
+describe('CardDetail (archive)', () => {
+	let originalFetch: typeof globalThis.fetch;
+
+	beforeEach(() => {
+		vi.useFakeTimers();
+		originalFetch = globalThis.fetch;
+		globalThis.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ id: 'c1', name: 'Card', description: null, labels: [], members: [], comments_count: 0n, checklists: [], created_by: '', created_at: '', updated_at: '', board_id: '', list_id: '', position: 0, is_due_completed: false, is_closed: false, due_date: null }),
+		});
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+		globalThis.fetch = originalFetch;
+	});
+
+	it('shows archive button', async () => {
+		render(CardDetail, { cardId: 'c1', open: true });
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.getByText('Archive')).toBeTruthy();
+	});
+
+	it('shows delete button', async () => {
+		render(CardDetail, { cardId: 'c1', open: true });
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.getByText('Delete')).toBeTruthy();
+	});
+
+	it('shows unarchive when card is closed', async () => {
+		globalThis.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ id: 'c1', name: 'Card', description: null, labels: [], members: [], comments_count: 0n, checklists: [], created_by: '', created_at: '', updated_at: '', board_id: '', list_id: '', position: 0, is_due_completed: false, is_closed: true, due_date: null }),
+		});
+		render(CardDetail, { cardId: 'c1', open: true });
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.getByText('Restore')).toBeTruthy();
+	});
+});
