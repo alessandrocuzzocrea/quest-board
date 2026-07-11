@@ -75,6 +75,7 @@
 			<h1>quest-board</h1>
 			<div class="user-info">
 				<span>{user.name}</span>
+				<a href="/settings" class="link">Settings</a>
 				<button class="link" onclick={handleLogout}>Logout</button>
 			</div>
 		</header>
