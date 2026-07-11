@@ -8,7 +8,9 @@
     "build": "npm run gen:types && vite build",
     "preview": "vite preview",
     "gen:types": "cd ../backend && TS_RS_EXPORT_DIR=../frontend/src/lib/types/bindings cargo test --lib 2>&1 | tail -1",
-    "lint:openapi": "npx @redocly/cli lint --config ../.redocly.yaml ../openapi.yaml"
+    "lint:openapi": "npx @redocly/cli lint --config ../.redocly.yaml ../openapi.yaml",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
@@ -21,6 +23,7 @@
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
     "svelte": "^5.56.4",
     "svelte-check": "^4.7.2",
-    "vite": "^8.1.4"
+    "vite": "^8.1.4",
+    "vitest": "^4.1.10"
   }
 }
