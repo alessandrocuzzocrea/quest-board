@@ -15,10 +15,11 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/{id}", put(update_comment).delete(delete_comment))
 }
 
-async fn user_id(session: &tower_sessions::Session) -> Result<String, AppError> {
-    session.get("user_id").await
+async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppError> {
+    let uid: String = session.get("user_id").await
         .map_err(|e| AppError::Internal(e.to_string()))?
-        .ok_or(AppError::Unauthorized("not logged in".into()))
+        .ok_or(AppError::Unauthorized("not logged in".into()))?;
+    uuid::Uuid::parse_str(&uid).map_err(|_| AppError::Internal("invalid user id".into()))
 }
 
 async fn list_comments(
@@ -27,6 +28,7 @@ async fn list_comments(
     Path(card_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
+    let card_id: uuid::Uuid = card_id.parse().map_err(|_| AppError::BadRequest("invalid card id".into()))?;
     let comments = repository::comment_repo::list_by_card(&state.db, &card_id).await?;
     Ok(Json(serde_json::json!(comments)))
 }
@@ -37,10 +39,9 @@ async fn create_comment(
     Json(req): Json<CreateCommentRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let uid = user_id(&session).await?;
-    let id = uuid::Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
 
-    let comment = repository::comment_repo::create(&state.db, &id, &req.card_id, &uid, &req.text, &now).await?;
+    let comment = repository::comment_repo::create(&state.db, &req.card_id, &uid, &req.text, &now).await?;
 
     repository::action_repo::record(
         &state.db, &req.card_id, Some(&uid), "commentCard",
@@ -57,6 +58,7 @@ async fn update_comment(
     Json(req): Json<UpdateCommentRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
+    let comment_id: uuid::Uuid = comment_id.parse().map_err(|_| AppError::BadRequest("invalid comment id".into()))?;
     let comment = repository::comment_repo::update_text(&state.db, &comment_id, &req.text).await?;
     Ok(Json(serde_json::json!(comment)))
 }
@@ -67,6 +69,7 @@ async fn delete_comment(
     Path(comment_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
+    let comment_id: uuid::Uuid = comment_id.parse().map_err(|_| AppError::BadRequest("invalid comment id".into()))?;
     repository::comment_repo::delete(&state.db, &comment_id).await?;
     Ok(Json(serde_json::json!({"ok": true})))
 }

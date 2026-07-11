@@ -24,6 +24,7 @@ async fn search(
     let user_id: String = session.get("user_id").await
         .map_err(|e| AppError::Internal(e.to_string()))?
         .ok_or(AppError::Unauthorized("not logged in".into()))?;
+    let _uid = uuid::Uuid::parse_str(&user_id).map_err(|_| AppError::Internal("invalid user id".into()))?;
 
     let pattern = format!("%{}%", query.q);
 

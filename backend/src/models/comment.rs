@@ -1,10 +1,12 @@
+use uuid::Uuid;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Comment {
-    pub id: String,
-    pub card_id: String,
-    pub user_id: String,
+    pub id: Uuid,
+    pub card_id: Uuid,
+    pub user_id: Uuid,
     pub text: String,
     pub created_at: String,
     pub updated_at: String,
@@ -12,7 +14,7 @@ pub struct Comment {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateCommentRequest {
-    pub card_id: String,
+    pub card_id: Uuid,
     pub text: String,
 }
 
@@ -23,9 +25,9 @@ pub struct UpdateCommentRequest {
 
 #[derive(Debug, Serialize)]
 pub struct CommentWithUser {
-    pub id: String,
-    pub card_id: String,
-    pub user_id: String,
+    pub id: Uuid,
+    pub card_id: Uuid,
+    pub user_id: Uuid,
     pub user: Option<super::user::UserResponse>,
     pub text: String,
     pub created_at: String,

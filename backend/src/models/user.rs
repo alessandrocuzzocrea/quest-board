@@ -1,8 +1,10 @@
+use uuid::Uuid;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct User {
-    pub id: String,
+    pub id: Uuid,
     pub email: String,
     #[serde(skip_serializing)]
     pub password_hash: String,
@@ -28,7 +30,7 @@ pub struct LoginRequest {
 
 #[derive(Debug, Serialize)]
 pub struct UserResponse {
-    pub id: String,
+    pub id: Uuid,
     pub email: String,
     pub name: String,
     pub role: String,

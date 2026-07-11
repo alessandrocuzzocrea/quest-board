@@ -15,10 +15,11 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/{id}", put(update_label).delete(delete_label))
 }
 
-async fn user_id(session: &tower_sessions::Session) -> Result<String, AppError> {
-    session.get("user_id").await
+async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppError> {
+    let uid: String = session.get("user_id").await
         .map_err(|e| AppError::Internal(e.to_string()))?
-        .ok_or(AppError::Unauthorized("not logged in".into()))
+        .ok_or(AppError::Unauthorized("not logged in".into()))?;
+    uuid::Uuid::parse_str(&uid).map_err(|_| AppError::Internal("invalid user id".into()))
 }
 
 async fn list_labels(
@@ -27,6 +28,7 @@ async fn list_labels(
     Path(board_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
+    let board_id: uuid::Uuid = board_id.parse().map_err(|_| AppError::BadRequest("invalid board id".into()))?;
     let labels = repository::label_repo::list_by_board(&state.db, &board_id).await?;
     Ok(Json(serde_json::json!(labels)))
 }
@@ -37,9 +39,8 @@ async fn create_label(
     Json(req): Json<CreateLabelRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
-    let id = uuid::Uuid::new_v4().to_string();
     let label = repository::label_repo::create(
-        &state.db, &id, &req.board_id, &req.name,
+        &state.db, &req.board_id, &req.name,
         &req.color.unwrap_or_else(|| "#0079bf".into()),
         65536.0,
     ).await?;
@@ -53,6 +54,7 @@ async fn update_label(
     Json(req): Json<UpdateLabelRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
+    let label_id: uuid::Uuid = label_id.parse().map_err(|_| AppError::BadRequest("invalid label id".into()))?;
 
     if let Some(name) = &req.name {
         repository::label_repo::update_name(&state.db, &label_id, name).await?;
@@ -77,6 +79,7 @@ async fn delete_label(
     Path(label_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
+    let label_id: uuid::Uuid = label_id.parse().map_err(|_| AppError::BadRequest("invalid label id".into()))?;
     repository::label_repo::delete(&state.db, &label_id).await?;
     Ok(Json(serde_json::json!({"ok": true})))
 }

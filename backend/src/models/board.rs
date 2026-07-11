@@ -1,11 +1,14 @@
+use uuid::Uuid;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Board {
-    pub id: String,
+    pub id: Uuid,
     pub name: String,
     pub position: f64,
-    pub created_by: String,
+    pub slug: String,
+    pub created_by: Uuid,
     pub created_at: String,
     pub updated_at: String,
 }

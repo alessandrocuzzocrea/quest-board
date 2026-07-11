@@ -1,8 +1,14 @@
 use quest_board::AppState;
 use std::sync::Arc;
+use std::sync::LazyLock;
+use tokio::sync::Mutex;
 use tower::ServiceExt;
 
+static SETUP_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
 async fn setup() -> (axum::Router, sqlx::PgPool) {
+    let _guard = SETUP_MUTEX.lock().await;
+
     let database_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:quest@localhost:5432/quest_test".into());
 

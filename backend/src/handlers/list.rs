@@ -14,10 +14,11 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/{id}", get(get_list).put(update_list).delete(delete_list))
 }
 
-async fn user_id(session: &tower_sessions::Session) -> Result<String, AppError> {
-    session.get("user_id").await
+async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppError> {
+    let uid: String = session.get("user_id").await
         .map_err(|e| AppError::Internal(e.to_string()))?
-        .ok_or(AppError::Unauthorized("not logged in".into()))
+        .ok_or(AppError::Unauthorized("not logged in".into()))?;
+    uuid::Uuid::parse_str(&uid).map_err(|_| AppError::Internal("invalid user id".into()))
 }
 
 async fn create_list(
@@ -29,13 +30,13 @@ async fn create_list(
     let list = repository::list_repo::create(&state.db, &req.board_id, req.name.as_deref().unwrap_or("New List"), 65536.0).await?;
     Ok(Json(serde_json::json!(list)))
 }
-
 async fn get_list(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
     Path(list_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
+    let list_id: uuid::Uuid = list_id.parse().map_err(|_| AppError::BadRequest("invalid list id".into()))?;
 
     let list = repository::list_repo::get_by_id(&state.db, &list_id)
         .await?
@@ -58,6 +59,7 @@ async fn update_list(
     Json(req): Json<UpdateListRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
+    let list_id: uuid::Uuid = list_id.parse().map_err(|_| AppError::BadRequest("invalid list id".into()))?;
 
     if let Some(name) = &req.name {
         repository::list_repo::update_name(&state.db, &list_id, name).await?;
@@ -82,6 +84,7 @@ async fn delete_list(
     Path(list_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
+    let list_id: uuid::Uuid = list_id.parse().map_err(|_| AppError::BadRequest("invalid list id".into()))?;
     repository::list_repo::delete(&state.db, &list_id).await?;
     Ok(Json(serde_json::json!({"ok": true})))
 }

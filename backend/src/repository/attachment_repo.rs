@@ -1,7 +1,8 @@
 use crate::error::AppError;
 use crate::models::attachment::Attachment;
+use uuid::Uuid;
 
-pub async fn list_by_card(pool: &sqlx::PgPool, card_id: &str) -> Result<Vec<Attachment>, AppError> {
+pub async fn list_by_card(pool: &sqlx::PgPool, card_id: &Uuid) -> Result<Vec<Attachment>, AppError> {
     Ok(sqlx::query_as(
         "SELECT * FROM attachments WHERE card_id = $1 ORDER BY created_at",
     )
@@ -12,33 +13,31 @@ pub async fn list_by_card(pool: &sqlx::PgPool, card_id: &str) -> Result<Vec<Atta
 
 pub async fn create_link(
     pool: &sqlx::PgPool,
-    id: &str,
-    card_id: &str,
-    user_id: &str,
+    card_id: &Uuid,
+    user_id: &Uuid,
     name: &str,
     url: &str,
 ) -> Result<Attachment, AppError> {
-    sqlx::query(
-        "INSERT INTO attachments (id, card_id, user_id, name, attachment_type, link_url) VALUES ($1, $2, $3, $4, 'link', $5)",
+    let id: Uuid = sqlx::query_scalar(
+        "INSERT INTO attachments (card_id, user_id, name, attachment_type, link_url) VALUES ($1, $2, $3, 'link', $4) RETURNING id",
     )
-    .bind(id)
     .bind(card_id)
     .bind(user_id)
     .bind(name)
     .bind(url)
-    .execute(pool)
+    .fetch_one(pool)
     .await?;
-    get_by_id(pool, id).await.transpose().unwrap()
+    get_by_id(pool, &id).await.transpose().unwrap()
 }
 
-pub async fn get_by_id(pool: &sqlx::PgPool, attachment_id: &str) -> Result<Option<Attachment>, AppError> {
+pub async fn get_by_id(pool: &sqlx::PgPool, attachment_id: &Uuid) -> Result<Option<Attachment>, AppError> {
     Ok(sqlx::query_as("SELECT * FROM attachments WHERE id = $1")
         .bind(attachment_id)
         .fetch_optional(pool)
         .await?)
 }
 
-pub async fn delete(pool: &sqlx::PgPool, attachment_id: &str) -> Result<(), AppError> {
+pub async fn delete(pool: &sqlx::PgPool, attachment_id: &Uuid) -> Result<(), AppError> {
     sqlx::query("DELETE FROM attachments WHERE id = $1")
         .bind(attachment_id)
         .execute(pool)

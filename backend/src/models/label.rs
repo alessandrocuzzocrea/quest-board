@@ -1,9 +1,11 @@
+use uuid::Uuid;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Label {
-    pub id: String,
-    pub board_id: String,
+    pub id: Uuid,
+    pub board_id: Uuid,
     pub name: String,
     pub color: String,
     pub position: f64,
@@ -13,7 +15,7 @@ pub struct Label {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateLabelRequest {
-    pub board_id: String,
+    pub board_id: Uuid,
     pub name: String,
     pub color: Option<String>,
 }

@@ -14,10 +14,11 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/{id}", axum::routing::delete(delete_attachment))
 }
 
-async fn user_id(session: &tower_sessions::Session) -> Result<String, AppError> {
-    session.get("user_id").await
+async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppError> {
+    let uid: String = session.get("user_id").await
         .map_err(|e| AppError::Internal(e.to_string()))?
-        .ok_or(AppError::Unauthorized("not logged in".into()))
+        .ok_or(AppError::Unauthorized("not logged in".into()))?;
+    uuid::Uuid::parse_str(&uid).map_err(|_| AppError::Internal("invalid user id".into()))
 }
 
 async fn list_attachments(
@@ -26,6 +27,7 @@ async fn list_attachments(
     Path(card_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
+    let card_id: uuid::Uuid = card_id.parse().map_err(|_| AppError::BadRequest("invalid card_id".into()))?;
     let attachments = repository::attachment_repo::list_by_card(&state.db, &card_id).await?;
     Ok(Json(serde_json::json!(attachments)))
 }
@@ -36,13 +38,12 @@ async fn create_link_attachment(
     Json(req): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let uid = user_id(&session).await?;
-    let id = uuid::Uuid::new_v4().to_string();
-
-    let card_id = req["card_id"].as_str().ok_or(AppError::BadRequest("card_id required".into()))?;
+    let card_id_str = req["card_id"].as_str().ok_or(AppError::BadRequest("card_id required".into()))?;
+    let card_id: uuid::Uuid = card_id_str.parse().map_err(|_| AppError::BadRequest("invalid card_id".into()))?;
     let name = req["name"].as_str().unwrap_or("link");
     let url = req["url"].as_str().ok_or(AppError::BadRequest("url required".into()))?;
 
-    let attachment = repository::attachment_repo::create_link(&state.db, &id, card_id, &uid, name, url).await?;
+    let attachment = repository::attachment_repo::create_link(&state.db, &card_id, &uid, name, url).await?;
     Ok(Json(serde_json::json!(attachment)))
 }
 
@@ -52,6 +53,7 @@ async fn delete_attachment(
     Path(attachment_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
+    let attachment_id: uuid::Uuid = attachment_id.parse().map_err(|_| AppError::BadRequest("invalid attachment_id".into()))?;
     repository::attachment_repo::delete(&state.db, &attachment_id).await?;
     Ok(Json(serde_json::json!({"ok": true})))
 }

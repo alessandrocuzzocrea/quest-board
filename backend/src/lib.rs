@@ -3,6 +3,7 @@ pub mod error;
 pub mod handlers;
 pub mod models;
 pub mod repository;
+pub mod slug;
 pub mod session;
 
 use std::sync::Arc;

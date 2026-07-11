@@ -37,12 +37,9 @@ async fn register(
         .map_err(|_| AppError::Internal("failed to hash password".into()))?
         .to_string();
 
-    let id = uuid::Uuid::new_v4().to_string();
-    repository::user_repo::create(&state.db, &id, &req.email, &pw_hash, &req.name).await?;
-
-    session.insert("user_id", &id).await.map_err(|e| AppError::Internal(e.to_string()))?;
-
-    Ok(Json(serde_json::json!({"user": {"id": id, "email": req.email, "name": req.name, "role": "user"}})))
+    let user = repository::user_repo::create(&state.db, &req.email, &pw_hash, &req.name).await?;
+    session.insert("user_id", user.id.to_string()).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    Ok(Json(serde_json::json!({"user": {"id": user.id.to_string(), "email": req.email, "name": req.name, "role": "user"}})))
 }
 
 async fn login(
@@ -75,11 +72,11 @@ async fn me(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let user_id: String = session.get("user_id").await
+    let user_id_str: String = session.get("user_id").await
         .map_err(|e| AppError::Internal(e.to_string()))?
         .ok_or(AppError::Unauthorized("not logged in".into()))?;
-
-    let user = repository::user_repo::find_by_id(&state.db, &user_id)
+    let uid = uuid::Uuid::parse_str(&user_id_str).map_err(|_| AppError::Internal("invalid user id".into()))?;
+    let user = repository::user_repo::find_by_id(&state.db, &uid)
         .await?
         .ok_or(AppError::Unauthorized("user not found".into()))?;
 

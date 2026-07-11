@@ -1,7 +1,8 @@
 use crate::error::AppError;
 use crate::models::comment::{Comment, CommentWithUser};
+use uuid::Uuid;
 
-pub async fn list_by_card(pool: &sqlx::PgPool, card_id: &str) -> Result<Vec<CommentWithUser>, AppError> {
+pub async fn list_by_card(pool: &sqlx::PgPool, card_id: &Uuid) -> Result<Vec<CommentWithUser>, AppError> {
     let comments: Vec<Comment> = sqlx::query_as(
         "SELECT * FROM comments WHERE card_id = $1 ORDER BY created_at",
     )
@@ -38,22 +39,20 @@ pub async fn list_by_card(pool: &sqlx::PgPool, card_id: &str) -> Result<Vec<Comm
 
 pub async fn create(
     pool: &sqlx::PgPool,
-    id: &str,
-    card_id: &str,
-    user_id: &str,
+    card_id: &Uuid,
+    user_id: &Uuid,
     text: &str,
     now: &str,
 ) -> Result<Comment, AppError> {
-    sqlx::query(
-        "INSERT INTO comments (id, card_id, user_id, text, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)",
+    let id: Uuid = sqlx::query_scalar(
+        "INSERT INTO comments (card_id, user_id, text, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) RETURNING id",
     )
-    .bind(id)
     .bind(card_id)
     .bind(user_id)
     .bind(text)
     .bind(now)
     .bind(now)
-    .execute(pool)
+    .fetch_one(pool)
     .await?;
 
     sqlx::query("UPDATE cards SET updated_at = $1 WHERE id = $2")
@@ -62,17 +61,17 @@ pub async fn create(
         .execute(pool)
         .await?;
 
-    get_by_id(pool, id).await.transpose().unwrap()
+    get_by_id(pool, &id).await.transpose().unwrap()
 }
 
-pub async fn get_by_id(pool: &sqlx::PgPool, comment_id: &str) -> Result<Option<Comment>, AppError> {
+pub async fn get_by_id(pool: &sqlx::PgPool, comment_id: &Uuid) -> Result<Option<Comment>, AppError> {
     Ok(sqlx::query_as("SELECT * FROM comments WHERE id = $1")
         .bind(comment_id)
         .fetch_optional(pool)
         .await?)
 }
 
-pub async fn update_text(pool: &sqlx::PgPool, comment_id: &str, text: &str) -> Result<Comment, AppError> {
+pub async fn update_text(pool: &sqlx::PgPool, comment_id: &Uuid, text: &str) -> Result<Comment, AppError> {
     sqlx::query("UPDATE comments SET text = $1, updated_at = NOW() WHERE id = $2")
         .bind(text)
         .bind(comment_id)
@@ -81,7 +80,7 @@ pub async fn update_text(pool: &sqlx::PgPool, comment_id: &str, text: &str) -> R
     get_by_id(pool, comment_id).await.transpose().unwrap()
 }
 
-pub async fn delete(pool: &sqlx::PgPool, comment_id: &str) -> Result<(), AppError> {
+pub async fn delete(pool: &sqlx::PgPool, comment_id: &Uuid) -> Result<(), AppError> {
     sqlx::query("DELETE FROM comments WHERE id = $1")
         .bind(comment_id)
         .execute(pool)

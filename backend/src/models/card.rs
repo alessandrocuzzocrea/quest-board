@@ -1,24 +1,26 @@
+use uuid::Uuid;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Card {
-    pub id: String,
-    pub board_id: String,
-    pub list_id: String,
+    pub id: Uuid,
+    pub board_id: Uuid,
+    pub list_id: Uuid,
     pub position: f64,
     pub name: String,
     pub description: Option<String>,
     pub due_date: Option<String>,
     pub is_due_completed: bool,
     pub is_closed: bool,
-    pub created_by: String,
+    pub created_by: Uuid,
     pub created_at: String,
     pub updated_at: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct CreateCardRequest {
-    pub list_id: String,
+    pub list_id: Uuid,
     pub name: String,
     pub description: Option<String>,
 }
@@ -31,21 +33,21 @@ pub struct UpdateCardRequest {
     pub due_date: Option<String>,
     pub is_due_completed: Option<bool>,
     pub is_closed: Option<bool>,
-    pub list_id: Option<String>,
+    pub list_id: Option<Uuid>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct CardWithMembers {
-    pub id: String,
-    pub board_id: String,
-    pub list_id: String,
+    pub id: Uuid,
+    pub board_id: Uuid,
+    pub list_id: Uuid,
     pub position: f64,
     pub name: String,
     pub description: Option<String>,
     pub due_date: Option<String>,
     pub is_due_completed: bool,
     pub is_closed: bool,
-    pub created_by: String,
+    pub created_by: Uuid,
     pub members: Vec<super::user::UserResponse>,
     pub labels: Vec<super::label::Label>,
     pub comments_count: i64,
@@ -56,6 +58,6 @@ pub struct CardWithMembers {
 
 #[derive(Debug, Deserialize)]
 pub struct MoveCardRequest {
-    pub list_id: String,
+    pub list_id: Uuid,
     pub position: f64,
 }

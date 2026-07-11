@@ -3,8 +3,9 @@ use crate::models::board::Board;
 use crate::models::list::{List, ListWithCards};
 use crate::models::card::{Card, CardWithMembers};
 use crate::models::user::UserResponse;
+use uuid::Uuid;
 
-pub async fn list_accessible(pool: &sqlx::PgPool, user_id: &str) -> Result<Vec<Board>, AppError> {
+pub async fn list_accessible(pool: &sqlx::PgPool, user_id: &Uuid) -> Result<Vec<Board>, AppError> {
     Ok(sqlx::query_as(
         "SELECT b.* FROM boards b
          LEFT JOIN board_members bm ON b.id = bm.board_id AND bm.user_id = $1
@@ -18,26 +19,35 @@ pub async fn list_accessible(pool: &sqlx::PgPool, user_id: &str) -> Result<Vec<B
     .await?)
 }
 
-pub async fn get_by_id(pool: &sqlx::PgPool, board_id: &str) -> Result<Option<Board>, AppError> {
+pub async fn get_by_id(pool: &sqlx::PgPool, board_id: &Uuid) -> Result<Option<Board>, AppError> {
     Ok(sqlx::query_as("SELECT * FROM boards WHERE id = $1")
         .bind(board_id)
         .fetch_optional(pool)
         .await?)
 }
 
-pub async fn create(pool: &sqlx::PgPool, id: &str, name: &str, created_by: &str) -> Result<Board, AppError> {
-    sqlx::query("INSERT INTO boards (id, name, created_by) VALUES ($1, $2, $3)")
-        .bind(id)
-        .bind(name)
-        .bind(created_by)
-        .execute(pool)
-        .await?;
-    get_by_id(pool, id).await.transpose().unwrap()
+pub async fn get_by_slug(pool: &sqlx::PgPool, slug: &str) -> Result<Option<Board>, AppError> {
+    Ok(sqlx::query_as("SELECT * FROM boards WHERE slug = $1")
+        .bind(slug)
+        .fetch_optional(pool)
+        .await?)
 }
 
-pub async fn add_member(pool: &sqlx::PgPool, board_id: &str, user_id: &str, role: &str) -> Result<(), AppError> {
-    sqlx::query("INSERT INTO board_members (id, board_id, user_id, role) VALUES ($1, $2, $3, $4)")
-        .bind(uuid::Uuid::new_v4().to_string())
+pub async fn create(pool: &sqlx::PgPool, name: &str, created_by: &Uuid) -> Result<Board, AppError> {
+    let slug = crate::slug::generate_slug();
+    let id: Uuid = sqlx::query_scalar(
+        "INSERT INTO boards (name, created_by, slug) VALUES ($1, $2, $3) RETURNING id",
+    )
+    .bind(name)
+    .bind(created_by)
+    .bind(&slug)
+    .fetch_one(pool)
+    .await?;
+    get_by_id(pool, &id).await.transpose().unwrap()
+}
+
+pub async fn add_member(pool: &sqlx::PgPool, board_id: &Uuid, user_id: &Uuid, role: &str) -> Result<(), AppError> {
+    sqlx::query("INSERT INTO board_members (board_id, user_id, role) VALUES ($1, $2, $3)")
         .bind(board_id)
         .bind(user_id)
         .bind(role)
@@ -46,7 +56,7 @@ pub async fn add_member(pool: &sqlx::PgPool, board_id: &str, user_id: &str, role
     Ok(())
 }
 
-pub async fn update_name(pool: &sqlx::PgPool, board_id: &str, name: &str) -> Result<(), AppError> {
+pub async fn update_name(pool: &sqlx::PgPool, board_id: &Uuid, name: &str) -> Result<(), AppError> {
     sqlx::query("UPDATE boards SET name = $1, updated_at = NOW() WHERE id = $2")
         .bind(name)
         .bind(board_id)
@@ -55,7 +65,7 @@ pub async fn update_name(pool: &sqlx::PgPool, board_id: &str, name: &str) -> Res
     Ok(())
 }
 
-pub async fn update_position(pool: &sqlx::PgPool, board_id: &str, position: f64) -> Result<(), AppError> {
+pub async fn update_position(pool: &sqlx::PgPool, board_id: &Uuid, position: f64) -> Result<(), AppError> {
     sqlx::query("UPDATE boards SET position = $1, updated_at = NOW() WHERE id = $2")
         .bind(position)
         .bind(board_id)
@@ -64,7 +74,7 @@ pub async fn update_position(pool: &sqlx::PgPool, board_id: &str, position: f64)
     Ok(())
 }
 
-pub async fn delete(pool: &sqlx::PgPool, board_id: &str) -> Result<(), AppError> {
+pub async fn delete(pool: &sqlx::PgPool, board_id: &Uuid) -> Result<(), AppError> {
     sqlx::query("DELETE FROM boards WHERE id = $1")
         .bind(board_id)
         .execute(pool)
@@ -72,7 +82,7 @@ pub async fn delete(pool: &sqlx::PgPool, board_id: &str) -> Result<(), AppError>
     Ok(())
 }
 
-pub async fn list_members(pool: &sqlx::PgPool, board_id: &str) -> Result<Vec<UserResponse>, AppError> {
+pub async fn list_members(pool: &sqlx::PgPool, board_id: &Uuid) -> Result<Vec<UserResponse>, AppError> {
     let users: Vec<crate::models::user::User> = sqlx::query_as(
         "SELECT u.* FROM users u
          JOIN board_members bm ON u.id = bm.user_id
@@ -86,7 +96,7 @@ pub async fn list_members(pool: &sqlx::PgPool, board_id: &str) -> Result<Vec<Use
 
 pub async fn get_full_board(
     pool: &sqlx::PgPool,
-    board_id: &str,
+    board_id: &Uuid,
 ) -> Result<(Board, Vec<ListWithCards>, Vec<UserResponse>), AppError> {
     let board = get_by_id(pool, board_id)
         .await?
@@ -201,4 +211,11 @@ pub async fn get_full_board(
     }
 
     Ok((board, list_with_cards, members))
+}
+
+
+pub async fn get_full_board_by_slug(pool: &sqlx::PgPool, slug: &str) -> Result<(Board, Vec<ListWithCards>, Vec<UserResponse>), AppError> {
+    let board = get_by_slug(pool, slug).await?
+        .ok_or(AppError::NotFound("board not found".into()))?;
+    get_full_board(pool, &board.id).await
 }

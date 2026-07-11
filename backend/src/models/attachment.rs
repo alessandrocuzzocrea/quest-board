@@ -1,10 +1,12 @@
+use uuid::Uuid;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Attachment {
-    pub id: String,
-    pub card_id: String,
-    pub user_id: String,
+    pub id: Uuid,
+    pub card_id: Uuid,
+    pub user_id: Uuid,
     pub name: String,
     #[serde(rename = "type")]
     pub attachment_type: String,

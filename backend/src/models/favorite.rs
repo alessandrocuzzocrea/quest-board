@@ -1,16 +1,18 @@
+use uuid::Uuid;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Favorite {
-    pub id: String,
-    pub user_id: String,
-    pub board_id: Option<String>,
-    pub card_id: Option<String>,
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub board_id: Option<Uuid>,
+    pub card_id: Option<Uuid>,
     pub created_at: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct CreateFavoriteRequest {
-    pub board_id: Option<String>,
-    pub card_id: Option<String>,
+    pub board_id: Option<Uuid>,
+    pub card_id: Option<Uuid>,
 }

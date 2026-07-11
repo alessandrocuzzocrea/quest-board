@@ -1152,6 +1152,7 @@ dependencies = [
  "chrono",
  "dotenvy",
  "password-hash",
+ "rand 0.9.4",
  "serde",
  "serde_json",
  "sqlx",

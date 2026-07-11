@@ -1,9 +1,11 @@
+use uuid::Uuid;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct List {
-    pub id: String,
-    pub board_id: String,
+    pub id: Uuid,
+    pub board_id: Uuid,
     pub name: Option<String>,
     pub position: f64,
     #[serde(rename = "type")]
@@ -15,7 +17,7 @@ pub struct List {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateListRequest {
-    pub board_id: String,
+    pub board_id: Uuid,
     pub name: Option<String>,
 }
 
@@ -28,8 +30,8 @@ pub struct UpdateListRequest {
 
 #[derive(Debug, Serialize)]
 pub struct ListWithCards {
-    pub id: String,
-    pub board_id: String,
+    pub id: Uuid,
+    pub board_id: Uuid,
     pub name: Option<String>,
     pub position: f64,
     #[serde(rename = "type")]
