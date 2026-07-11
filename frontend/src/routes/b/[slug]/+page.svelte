@@ -1,6 +1,7 @@
 <script lang="ts">
 	import KanbanColumn from '$lib/components/KanbanColumn.svelte';
 	import CardDetail from '$lib/components/CardDetail.svelte';
+	import ChatPanel from '$lib/components/ChatPanel.svelte';
 	import { api, type User } from '$lib/api';
 	import type { Board, ListWithCards, CardWithMembers } from '$lib/types/bindings';
 
@@ -9,6 +10,7 @@
 	const boardData = JSON.parse(JSON.stringify(initial.lists)) as ListWithCards[];
 	let columns = $state<ListWithCards[]>(boardData);
 	let selectedCardId = $state<string | null>(null);
+let chatOpen = $state(false);
 	let user = $state<User | null>(null);
 	let error = $state('');
 	let newListName = $state('');
@@ -136,6 +138,7 @@
 	<div class="board-actions">
 		{#if user}
 			<span class="user-badge">{user.name}</span>
+			<button class="chat-btn" onclick={() => chatOpen = true}>AI Chat</button>
 		{/if}
 	</div>
 </div>
@@ -177,6 +180,12 @@
 	onclose={() => selectedCardId = null}
 />
 
+<ChatPanel
+	boardId={initial.board.id}
+	open={chatOpen}
+	onclose={() => chatOpen = false}
+/>
+
 <style>
 	.board-header {
 		display: flex;
@@ -194,6 +203,19 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
+	}
+	.chat-btn {
+		padding: 6px 12px;
+		background: #0079bf;
+		color: white;
+		border: none;
+		border-radius: 6px;
+		font-size: 13px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.chat-btn:hover {
+		background: #005f99;
 	}
 	.user-badge {
 		font-size: 13px;

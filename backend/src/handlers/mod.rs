@@ -8,6 +8,7 @@ pub mod favorite;
 pub mod label;
 pub mod list;
 pub mod search;
+pub mod ai;
 
 use axum::extract::State;
 use axum::routing::get;
