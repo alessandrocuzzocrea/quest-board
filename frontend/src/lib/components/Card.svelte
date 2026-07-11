@@ -4,6 +4,7 @@
 	import type { Label, UserResponse, TaskListWithTasks } from '$lib/types/bindings';
 
 	let {
+		id = '',
 		name = '',
 		description = null as string | null,
 		labels = [] as Label[],
@@ -13,8 +14,12 @@
 		isClosed = false,
 		commentsCount = 0n,
 		checklists = [] as TaskListWithTasks[],
+		listId = '',
 		onclick = undefined as (() => void) | undefined,
+		onDragStart = undefined as ((e: DragEvent) => void) | undefined,
+		onDragEnd = undefined as ((e: DragEvent) => void) | undefined,
 	}: {
+		id: string;
 		name: string;
 		description?: string | null;
 		labels?: Label[];
@@ -24,7 +29,10 @@
 		isClosed?: boolean;
 		commentsCount?: bigint;
 		checklists?: TaskListWithTasks[];
+		listId?: string;
 		onclick?: () => void;
+		onDragStart?: (e: DragEvent) => void;
+		onDragEnd?: (e: DragEvent) => void;
 	} = $props();
 
 	const totalChecklistItems = $derived(
@@ -32,9 +40,6 @@
 	);
 	const completedChecklistItems = $derived(
 		checklists.reduce((sum, tl) => sum + tl.tasks.filter(t => t.is_completed).length, 0)
-	);
-	const checklistProgress = $derived(
-		totalChecklistItems > 0 ? (completedChecklistItems / totalChecklistItems) * 100 : 0
 	);
 
 	const isDueOverdue = $derived(
@@ -46,12 +51,29 @@
 		const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 		return `${months[d.getMonth()]} ${d.getDate()}`;
 	}
+
+	function handleDragStart(e: DragEvent) {
+		setTimeout(() => {
+			if (e.target) (e.target as HTMLElement).classList.add('dragging');
+		}, 0);
+		e.dataTransfer?.setData('text/plain', JSON.stringify({ cardId: id, sourceListId: listId }));
+		if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+		onDragStart?.(e);
+	}
+
+	function handleDragEnd(e: DragEvent) {
+		if (e.target) (e.target as HTMLElement).classList.remove('dragging');
+		onDragEnd?.(e);
+	}
 </script>
 
 <button
 	class="card"
 	class:closed={isClosed}
 	class:clickable={!!onclick}
+	draggable="true"
+	ondragstart={handleDragStart}
+	ondragend={handleDragEnd}
 	onclick={onclick}
 >
 	{#if labels.length > 0}
@@ -105,7 +127,7 @@
 		border-radius: 8px;
 		padding: 10px 12px;
 		box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-		cursor: default;
+		cursor: grab;
 		text-align: left;
 		border: none;
 		width: 100%;
@@ -116,9 +138,16 @@
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
+		user-select: none;
+	}
+	.card:global(.dragging) {
+		opacity: 0.35;
+	}
+	.card:active {
+		cursor: grabbing;
 	}
 	.card.clickable:hover {
-		box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+		box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 	}
 	.card.closed {
 		opacity: 0.55;
@@ -165,7 +194,6 @@
 	}
 	.members {
 		display: flex;
-		gap: -2px;
 	}
 	.members > :global(*) {
 		margin-right: -4px;
