@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "gen:types": "cd ../backend && TS_RS_EXPORT_DIR=../frontend/src/lib/types/bindings cargo test --lib 2>&1 | tail -1",
     "lint:openapi": "npx --yes @redocly/cli lint ../backend/static/openapi.yaml",
+    "story:dev": "histoire dev",
+    "story:build": "histoire build"
   },
   "keywords": [],
   "author": "",
@@ -18,7 +20,6 @@
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.69.2",
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
-    "openapi-typescript": "^7.13.0",
     "svelte": "^5.56.4",
     "svelte-check": "^4.7.2",
     "vite": "^8.1.4"
