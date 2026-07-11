@@ -12,6 +12,9 @@
 	let isRegister = $state(false);
 	let creating = $state(false);
 	let newBoardName = $state('');
+	let searchQuery = $state('');
+	let searchResults = $state<{ cards: Array<{ id: string; name: string; board_id: string; list_name: string }>; boards: Array<{ id: string; name: string }> } | null>(null);
+	let searching = $state(false);
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
@@ -67,6 +70,22 @@
 	}
 
 	$effect(() => { checkSession(); });
+
+	async function doSearch() {
+		const q = searchQuery.trim();
+		if (!q) { searchResults = null; return; }
+		searching = true;
+		try {
+			const data = await api<{ cards: Array<{ id: string; name: string; board_id: string; list_name: string }>; boards: Array<{ id: string; name: string }> }>(`/search?q=${encodeURIComponent(q)}`);
+			searchResults = data;
+		} catch { searchResults = { cards: [], boards: [] }; }
+		searching = false;
+	}
+
+	function clearSearch() {
+		searchQuery = '';
+		searchResults = null;
+	}
 </script>
 
 {#if user}
@@ -80,6 +99,40 @@
 			</div>
 		</header>
 
+
+		<div class="search-bar">
+			<input type="search" placeholder="Search cards and boards..." bind:value={searchQuery} onkeydown={(e) => { if (e.key === 'Enter') doSearch(); }} />
+			{#if searchResults !== null}
+				<button class="link" onclick={clearSearch}>Clear</button>
+			{/if}
+		</div>
+
+		{#if searchResults !== null}
+			<div class="search-results">
+				{#if searching}
+					<p class="empty">Searching...</p>
+				{:else if searchResults.cards.length === 0 && searchResults.boards.length === 0}
+					<p class="empty">No results.</p>
+				{:else}
+					{#if searchResults.boards.length > 0}
+						<h3>Boards</h3>
+						<div class="board-grid">
+							{#each searchResults.boards as b}
+								<a href="/b/{b.id}" class="board-link"><BoardCard name={b.name} /></a>
+							{/each}
+						</div>
+					{/if}
+					{#if searchResults.cards.length > 0}
+						<h3>Cards</h3>
+						<div class="card-results">
+							{#each searchResults.cards as c}
+								<a href="/b/{c.board_id}" class="card-result">{c.name} <span class="muted">in {c.list_name}</span></a>
+							{/each}
+						</div>
+					{/if}
+				{/if}
+			</div>
+		{/if}
 		<div class="boards-section">
 			<div class="boards-header">
 				<h2>Your Boards</h2>
@@ -229,3 +282,12 @@
 		text-decoration: underline;
 	}
 </style>
+.search-bar { display: flex; align-items: center; gap: 8px; max-width: 500px; }
+.search-bar input { flex: 1; padding: 8px 12px; border: 1px solid var(--border, #ddd); border-radius: 6px; font-size: 14px; }
+.search-results { max-width: 500px; }
+.search-results h3 { font-size: 14px; margin: 8px 0 4px; color: #888; text-transform: uppercase; }
+.search-results .board-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.card-results { display: flex; flex-direction: column; gap: 4px; }
+.card-result { padding: 6px 10px; background: var(--surface, #f5f5f5); border-radius: 6px; text-decoration: none; color: inherit; font-size: 14px; display: block; }
+.card-result:hover { background: #e8e8e8; }
+.muted { color: #999; font-size: 12px; }
