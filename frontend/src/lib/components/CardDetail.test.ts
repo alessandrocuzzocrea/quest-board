@@ -130,13 +130,10 @@ describe('CardDetail (comments)', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 		originalFetch = globalThis.fetch;
-<<<<<<< HEAD
-=======
 		globalThis.fetch = vi.fn().mockResolvedValue({
 			ok: true,
 			json: () => Promise.resolve({ id: 'c1', name: 'Card', description: null, labels: [], members: [], comments_count: 0n, checklists: [], created_by: '', created_at: '', updated_at: '', board_id: '', list_id: '', position: 0, is_due_completed: false, is_closed: false, due_date: null }),
 		});
->>>>>>> origin/main
 	});
 
 	afterEach(() => {

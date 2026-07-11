@@ -81,6 +81,27 @@
 		}
 	}
 
+	async function deleteCard(cardId: string) {
+		try {
+			await api(`/cards/${cardId}`, { method: 'DELETE' });
+			for (const col of columns) {
+				col.cards = col.cards.filter(c => c.id !== cardId);
+			}
+			columns = columns;
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to delete card';
+		}
+	}
+
+	async function deleteList(listId: string) {
+		try {
+			await api(`/lists/${listId}`, { method: 'DELETE' });
+			columns = columns.filter(c => c.id !== listId);
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to delete list';
+		}
+	}
+
 	$effect(() => { checkSession(); });
 </script>
 
@@ -112,8 +133,9 @@
 			onDropCard={moveCard}
 			onCardClick={(id) => selectedCardId = id}
 			onAddCard={addCard}
+			onDeleteCard={deleteCard}
+			onDeleteList={deleteList}
 		/>
-	{/each}
 
 	<div class="add-list-col">
 		<input
