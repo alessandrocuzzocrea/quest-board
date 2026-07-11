@@ -2,7 +2,8 @@ use argon2::password_hash::{PasswordHasher, PasswordVerifier};
 use argon2::password_hash::phc::PasswordHash;
 use argon2::Argon2;
 use axum::extract::State;
-use axum::routing::post;
+use axum::http::HeaderMap;
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use std::sync::Arc;
 
@@ -15,12 +16,17 @@ fn pepper() -> String {
     crate::db::pepper()
 }
 
+async fn resolve(session: tower_sessions::Session, headers: HeaderMap, pool: &sqlx::PgPool) -> Result<uuid::Uuid, AppError> {
+    crate::auth::resolve_user(&session, &headers, pool).await
+}
+
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/register", post(register))
         .route("/login", post(login))
         .route("/logout", post(logout))
-        .route("/me", axum::routing::get(me))
+        .route("/me", get(me).put(update_name))
+        .route("/me/password", put(change_password))
 }
 
 async fn register(
@@ -77,14 +83,56 @@ async fn logout(session: tower_sessions::Session) -> Result<Json<serde_json::Val
 async fn me(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
+    headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let user_id_str: String = session.get("user_id").await
-        .map_err(|e| AppError::Internal(e.to_string()))?
-        .ok_or(AppError::Unauthorized("not logged in".into()))?;
-    let uid = uuid::Uuid::parse_str(&user_id_str).map_err(|_| AppError::Internal("invalid user id".into()))?;
+    let uid = resolve(session, headers, &state.db).await?;
     let user = repository::user_repo::find_by_id(&state.db, &uid)
         .await?
         .ok_or(AppError::Unauthorized("user not found".into()))?;
 
     Ok(Json(serde_json::json!({"user": UserResponse::from(user)})))
+}
+
+async fn update_name(
+    State(state): State<Arc<AppState>>,
+    session: tower_sessions::Session,
+    headers: HeaderMap,
+    Json(req): Json<UpdateNameRequest>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let uid = resolve(session, headers, &state.db).await?;
+    let user = repository::user_repo::update_name(&state.db, &uid, &req.name).await?;
+    Ok(Json(serde_json::json!({"user": UserResponse::from(user)})))
+}
+
+async fn change_password(
+    State(state): State<Arc<AppState>>,
+    session: tower_sessions::Session,
+    headers: HeaderMap,
+    Json(req): Json<ChangePasswordRequest>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let uid = resolve(session, headers, &state.db).await?;
+
+    // Verify old password
+    let user = repository::user_repo::find_by_id(&state.db, &uid)
+        .await?
+        .ok_or(AppError::Unauthorized("user not found".into()))?;
+
+    let parsed = PasswordHash::new(&user.password_hash)
+        .map_err(|_| AppError::Internal("auth error".into()))?;
+
+    let peppered = format!("{}{}", pepper(), req.old_password);
+    Argon2::default()
+        .verify_password(peppered.as_bytes(), &parsed)
+        .map_err(|_| AppError::Unauthorized("invalid password".into()))?;
+
+    // Hash new password
+    let new_peppered = format!("{}{}", pepper(), req.new_password);
+    let new_hash = Argon2::default()
+        .hash_password(new_peppered.as_bytes())
+        .map_err(|_| AppError::Internal("failed to hash password".into()))?
+        .to_string();
+
+    repository::user_repo::update_password(&state.db, &uid, &new_hash).await?;
+
+    Ok(Json(serde_json::json!({"ok": true})))
 }

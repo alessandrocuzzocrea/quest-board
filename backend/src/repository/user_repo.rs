@@ -38,3 +38,22 @@ pub async fn list_all(pool: &sqlx::PgPool) -> Result<Vec<UserResponse>, AppError
         .await?;
     Ok(users.into_iter().map(Into::into).collect())
 }
+
+pub async fn update_name(pool: &sqlx::PgPool, id: &Uuid, name: &str) -> Result<User, AppError> {
+    Ok(sqlx::query_as(
+        "UPDATE users SET name = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
+    )
+    .bind(name)
+    .bind(id)
+    .fetch_one(pool)
+    .await?)
+}
+
+pub async fn update_password(pool: &sqlx::PgPool, id: &Uuid, password_hash: &str) -> Result<(), AppError> {
+    sqlx::query("UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2")
+        .bind(password_hash)
+        .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
