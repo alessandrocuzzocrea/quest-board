@@ -61,7 +61,7 @@ mod tests {
             .expect("failed to hash")
             .to_string();
 
-        let parsed = argon2::password_hash::PasswordHash::new(&hash)
+        let parsed = argon2::password_hash::phc::PasswordHash::new(&hash)
             .expect("failed to parse hash");
 
         argon2::Argon2::default()
@@ -82,7 +82,7 @@ mod tests {
             .expect("failed to hash")
             .to_string();
 
-        let parsed = argon2::password_hash::PasswordHash::new(&hash)
+        let parsed = argon2::password_hash::phc::PasswordHash::new(&hash)
             .expect("failed to parse hash");
 
         let result = argon2::Argon2::default()
