@@ -8,6 +8,10 @@ async fn main() {
 
     dotenvy::dotenv().ok();
 
+    if std::env::var("APP_SECRET").unwrap_or_default().is_empty() {
+        tracing::warn!("APP_SECRET not set — password hashing uses no pepper. Set it in .env for production.");
+    }
+
     let database_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:quest@localhost:5432/quest".into());
 
