@@ -770,6 +770,95 @@ paths:
         "200":
           description: Array of users
 
+  # ── API Keys ──────────────────────────────────────────────────
+  /api-keys:
+    get:
+      tags: [api-keys]
+      summary: List API keys for current user
+      responses:
+        "200":
+          description: Array of API keys
+        "401":
+          description: Not logged in
+    post:
+      tags: [api-keys]
+      summary: Create a new API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, description: Optional label }
+      responses:
+        "200":
+          description: API key created (key value returned once)
+        "401":
+          description: Not logged in
+  /api-keys/{id}:
+    delete:
+      tags: [api-keys]
+      summary: Revoke an API key
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Key revoked
+        "401":
+          description: Not logged in
+        "404":
+          description: Key not found
+
+  # ── Health ──────────────────────────────────────────────────────
+  /health:
+    get:
+      tags: [health]
+      summary: System health and monitoring info
+      responses:
+        "200":
+          description: Health info (memory, uptime, Rust version, DB stats)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  # ── AI Chat ────────────────────────────────────────────────────
+  /ai/chat:
+    post:
+      tags: [ai]
+      summary: Send a chat message to the AI assistant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role: { type: string, enum: [user, assistant] }
+                      content: { type: string }
+                board_id: { type: string, format: uuid }
+                card_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: AI reply
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply: { type: string }
+        "401":
+          description: Not logged in
+
 components:
   schemas:
     # Referenced schemas — see bindings/ for full type definitions
@@ -864,6 +953,21 @@ components:
     UpdateLabelRequest:
       type: object
       properties:
+        position: { type: number }
         name: { type: string }
         color: { type: string }
-        position: { type: number }
+    HealthResponse:
+      type: object
+      properties:
+        status: { type: string }
+        memory: { type: string }
+        uptime_seconds: { type: integer }
+        rust_version: { type: string }
+        db_stats:
+          type: object
+          properties:
+            boards: { type: integer }
+            cards: { type: integer }
+            lists: { type: integer }
+            users: { type: integer }
+            comments: { type: integer }
