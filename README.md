@@ -32,6 +32,29 @@ npm run dev
 # (append --host for LAN access: npm run dev -- --host)
 ```
 
+## Backend auto-reload with cargo watch
+
+The `cargo dev` alias (defined in `backend/.cargo/config.toml`) runs:
+
+```sh
+cargo watch -w src -x run
+```
+
+This recompiles and restarts the backend whenever a file in `backend/src/` changes.
+Install `cargo-watch` once:
+
+```sh
+cargo install cargo-watch
+```
+
+Then either:
+
+```sh
+cd backend && cargo dev
+# or the full command:
+cd backend && cargo watch -w src -x run
+```
+
 ## Manual start (without auto-reload)
 
 ```sh
