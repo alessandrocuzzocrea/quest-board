@@ -14,7 +14,6 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/{id}", get(get_board).put(update_board).delete(delete_board))
         .route("/by-slug/{slug}", get(get_board_by_slug))
 }
-
 async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppError> {
     let uid: String = session.get("user_id").await
         .map_err(|e| AppError::Internal(e.to_string()))?
