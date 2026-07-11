@@ -1,131 +1,125 @@
+
 <script lang="ts">
+	const randomUUID = () => crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => ((Math.random() * 16) | 0).toString(16));
+	import Card from '$lib/components/Card.svelte';
 	import BoardCard from '$lib/components/BoardCard.svelte';
-	import type { Board, ListWithCards, CardWithMembers } from '$lib/types/bindings';
+	import type { Label, UserResponse, TaskListWithTasks, Task } from '$lib/types/bindings';
 
-	function mockBoard(name: string): Board {
+	function mockUser(name: string): UserResponse {
+		return { id: randomUUID(), email: `${name.toLowerCase()}@test.com`, name, role: 'user' };
+	}
+
+	function mockLabel(name: string, color: string): Label {
+		return { id: randomUUID(), board_id: '', name, color, position: 0, created_at: '', updated_at: '' };
+	}
+
+	function mockTask(name: string, done: boolean): Task {
 		return {
-			id: crypto.randomUUID(),
-			name,
-			slug: name.toLowerCase().replace(/\s+/g, '-'),
-			position: 0,
-			created_by: crypto.randomUUID(),
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
+			id: randomUUID(), task_list_id: '', name, position: 0,
+			is_completed: done, assignee_id: null, created_at: '', updated_at: '',
 		};
 	}
 
-	function mockCard(name: string, comments: bigint): CardWithMembers {
+	function mockChecklist(tasks: Task[]): TaskListWithTasks {
 		return {
-			id: crypto.randomUUID(),
-			board_id: '',
-			list_id: '',
-			position: 0,
-			name,
-			description: null,
-			due_date: null,
-			is_due_completed: false,
-			is_closed: false,
-			created_by: crypto.randomUUID(),
-			members: [],
-			labels: [],
-			comments_count: comments,
-			checklists: [],
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
+			id: randomUUID(), card_id: '', name: 'Checklist',
+			position: 0, hide_completed: false, tasks,
+			created_at: '', updated_at: '',
 		};
 	}
 
-	function mockList(name: string, cards: CardWithMembers[], color: string | null): ListWithCards {
-		return {
-			id: crypto.randomUUID(),
-			board_id: '',
-			name,
-			position: 0,
-			type: 'active',
-			color,
-			cards,
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-		};
-	}
+	const users = {
+		alice: mockUser('Alice Chen'),
+		bob: mockUser('Bob Smith'),
+		carol: mockUser('Carol Davis'),
+	};
 
-	const board = mockBoard('Sprint 42');
+	const labels = {
+		bug: mockLabel('bug', '#d04444'),
+		feature: mockLabel('feature', '#0079bf'),
+		design: mockLabel('design', '#8b5cf6'),
+		urgent: mockLabel('urgent', '#e8760a'),
+		docs: mockLabel('docs', '#4caf50'),
+	};
 
-	const normalLists: ListWithCards[] = [
-		mockList('To Do', [
-			mockCard('Setup CI', 0n),
-			mockCard('Write docs', 2n),
-			mockCard('Refactor auth', 5n),
-		], null),
-		mockList('In Progress', [
-			mockCard('API rate limiting', 1n),
-		], '#0079bf'),
-		mockList('Done', [
-			mockCard('Init repo', 0n),
-			mockCard('Design system', 3n),
-		], null),
-	];
-
-	const emptyLists: ListWithCards[] = [
-		mockList('To Do', [], null),
-		mockList('In Progress', [], '#0079bf'),
-		mockList('Done', [], null),
-	];
-
-	const scenarios = ['normal', 'empty', 'error'] as const;
-	let scenario: string = $state('normal');
+	const scenarios = ['basic', 'full', 'overdue', 'empty', 'closed'] as const;
+	let scenario: string = $state('basic');
 </script>
 
 <svelte:head>
-	<title>Dev — Board Components</title>
+	<title>Dev — Card Component</title>
 </svelte:head>
 
 <div class="dev-header">
-	<h1>Dev: Board Components</h1>
+	<h1>Dev: Card Component</h1>
 	<div class="controls">
 		{#each scenarios as s}
-			<button
-				class={scenario === s ? 'active' : ''}
-				onclick={() => scenario = s}
-			>{s}</button>
+			<button class={scenario === s ? 'active' : ''} onclick={() => scenario = s}>
+				{s}
+			</button>
 		{/each}
 	</div>
-	<p class="note">Types auto-generated from Rust via ts-rs</p>
+	<p class="note">Types from ts-rs: <code>CardWithMembers</code>, <code>Label</code>, <code>UserResponse</code></p>
 </div>
 
-<div class="board-scene">
-	{#if scenario === 'normal'}
-		<h2>{board.name}</h2>
-		<div class="board">
-			{#each normalLists as list}
-				<div class="list">
-					<h3>{list.name ?? 'Untitled'}</h3>
-					{#each list.cards as card}
-						<BoardCard name={card.name} cardCount={Number(card.comments_count)} />
-					{/each}
-					{#if list.cards.length === 0}
-						<p class="empty">No cards</p>
-					{/if}
-				</div>
-			{/each}
-		</div>
-	{:else if scenario === 'empty'}
-		<h2>Empty Board</h2>
-		<div class="board">
-			{#each emptyLists as list}
-				<div class="list">
-					<h3>{list.name ?? 'Untitled'}</h3>
-					<p class="empty">No cards</p>
-				</div>
-			{/each}
-		</div>
-	{:else if scenario === 'error'}
-		<h2>Error State</h2>
-		<div class="error-state">
-			<p>Failed to load board: Network error</p>
-			<button>Retry</button>
-		</div>
-	{/if}
+<div class="demo">
+	<div class="list">
+		<h3>Card Preview</h3>
+
+		{#if scenario === 'basic'}
+			<Card name="Setup CI pipeline" />
+			<Card name="Write API docs" description="Document all endpoints including auth, boards, cards, and search" />
+			<Card name="Fix login timeout" labels={[labels.bug]} />
+
+		{:else if scenario === 'full'}
+			<Card
+				name="Refactor authentication module"
+				description="Replace the current basic auth with OAuth2. This involves updating the auth service, adding token refresh logic, and migrating existing users."
+				labels={[labels.feature, labels.urgent]}
+				members={[users.alice, users.bob]}
+				dueDate="2026-07-20T00:00:00Z"
+				commentsCount={5n}
+				checklists={[mockChecklist([mockTask('Design', true), mockTask('Implement', true), mockTask('Test', false), mockTask('Deploy', false)])]}
+			/>
+
+		{:else if scenario === 'overdue'}
+			<Card
+				name="Fix critical security vulnerability"
+				labels={[labels.bug, labels.urgent]}
+				members={[users.alice]}
+				dueDate="2026-07-05T00:00:00Z"
+				isDueCompleted={false}
+				commentsCount={8n}
+			/>
+			<Card
+				name="Update dependencies"
+				dueDate="2026-07-10T00:00:00Z"
+				isDueCompleted={true}
+				labels={[labels.docs]}
+			/>
+
+		{:else if scenario === 'empty'}
+			<Card name="Empty scenario — no metadata" />
+			<div class="empty-hint">Empty list: drop cards here</div>
+
+		{:else if scenario === 'closed'}
+			<Card
+				name="Deprecated feature flag system"
+				description="This was replaced by the new config system in Q2"
+				labels={[labels.docs]}
+				members={[users.carol]}
+				isClosed={true}
+				commentsCount={3n}
+			/>
+		{/if}
+	</div>
+
+	<div class="list">
+		<h3>BoardCard</h3>
+		<BoardCard name="My Board" cardCount={5} />
+		<BoardCard name="Empty Board" cardCount={0} />
+		<BoardCard name="Sprint 2026 Q3 — Really Long Board Name" cardCount={12} />
+	</div>
 </div>
 
 <style>
@@ -145,6 +139,7 @@
 		border-radius: 6px;
 		background: var(--bg);
 		cursor: pointer;
+		text-transform: capitalize;
 	}
 	.controls button.active {
 		background: var(--accent, #0079bf);
@@ -155,43 +150,34 @@
 		font-size: 13px;
 		color: var(--text-muted);
 	}
-	.board-scene {
-		padding: 0 16px;
-	}
-	.board {
+	.demo {
 		display: flex;
-		gap: 12px;
-		overflow-x: auto;
-		padding: 8px 0;
+		gap: 32px;
+		padding: 0 16px;
+		flex-wrap: wrap;
 	}
 	.list {
-		background: var(--surface, #f5f5f5);
-		border-radius: 8px;
+		background: #f0f2f5;
+		border-radius: 10px;
 		padding: 12px;
-		min-width: 260px;
+		width: 290px;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
 	}
-	.empty {
-		color: var(--text-muted, #888);
-		font-style: italic;
-		font-size: 13px;
-		text-align: center;
-		padding: 16px;
+	.list h3 {
+		margin: 0 0 4px 0;
+		font-size: 14px;
+		color: #444;
+		padding: 0 4px;
 	}
-	.error-state {
-		background: #fff0f0;
-		border: 1px solid #ffcccc;
+	.empty-hint {
+		border: 2px dashed #ccc;
 		border-radius: 8px;
 		padding: 24px;
 		text-align: center;
-		color: #cc0000;
-	}
-	.error-state button {
-		margin-top: 12px;
-		padding: 8px 24px;
-		background: #cc0000;
-		color: white;
-		border: none;
-		border-radius: 6px;
-		cursor: pointer;
+		color: #999;
+		font-size: 13px;
+		font-style: italic;
 	}
 </style>
