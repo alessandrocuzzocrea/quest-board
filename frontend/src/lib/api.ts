@@ -1,6 +1,6 @@
-import type { components } from '$lib/types/bindings';
+import type { UserResponse } from '$lib/types/bindings';
 
-export type User = components['schemas']['UserResponse'];
+export type User = UserResponse;
 
 export async function api<T = unknown>(path: string, options: RequestInit = {}) {
 	const res = await fetch(`/api/v1${path}`, {
