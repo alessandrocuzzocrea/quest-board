@@ -1,4 +1,5 @@
 pub mod db;
+pub mod ai_tools;
 pub mod auth;
 pub mod error;
 pub mod handlers;
