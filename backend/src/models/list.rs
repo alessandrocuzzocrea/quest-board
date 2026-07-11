@@ -1,9 +1,10 @@
 use uuid::Uuid;
 
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use ts_rs::TS;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, TS)]
+#[ts(export)]
 pub struct List {
     pub id: Uuid,
     pub board_id: Uuid,
@@ -16,20 +17,23 @@ pub struct List {
     pub updated_at: String,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, TS)]
+#[ts(export)]
 pub struct CreateListRequest {
     pub board_id: Uuid,
     pub name: Option<String>,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, TS)]
+#[ts(export)]
 pub struct UpdateListRequest {
     pub name: Option<String>,
     pub position: Option<f64>,
     pub color: Option<String>,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, TS)]
+#[ts(export)]
 pub struct ListWithCards {
     pub id: Uuid,
     pub board_id: Uuid,

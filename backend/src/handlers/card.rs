@@ -31,16 +31,6 @@ async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppErr
     uuid::Uuid::parse_str(&uid).map_err(|_| AppError::Internal("invalid user id".into()))
 }
 
-#[utoipa::path(
-    post,
-    path = "/cards/",
-    tag = "cards",
-    request_body = CreateCardRequest,
-    responses(
-        (status = 200, description = "Card created", body = serde_json::Value),
-        (status = 401, description = "Unauthorized")
-    )
-)]
  
 async fn create_card(
     State(state): State<Arc<AppState>>,
@@ -60,19 +50,6 @@ async fn create_card(
     Ok(Json(serde_json::json!(card)))
 
 }
-#[utoipa::path(
-    get,
-    path = "/cards/{id}",
-    tag = "cards",
-    params(
-        ("id" = String, Path, description = "Card ID")
-    ),
-    responses(
-        (status = 200, description = "Card details", body = serde_json::Value),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Card not found")
-    )
-)]
  
 async fn get_card(
     State(state): State<Arc<AppState>>,
@@ -102,20 +79,6 @@ async fn get_card(
     })))
 }
 
-#[utoipa::path(
-    put,
-    path = "/cards/{id}",
-    tag = "cards",
-    request_body = UpdateCardRequest,
-    params(
-        ("id" = String, Path, description = "Card ID")
-    ),
-    responses(
-        (status = 200, description = "Card updated", body = serde_json::Value),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Card not found")
-    )
-)]
  
 async fn update_card(
     State(state): State<Arc<AppState>>,
@@ -131,19 +94,6 @@ async fn update_card(
     Ok(Json(serde_json::json!(card)))
 }
 
-#[utoipa::path(
-    delete,
-    path = "/cards/{id}",
-    tag = "cards",
-    params(
-        ("id" = String, Path, description = "Card ID")
-    ),
-    responses(
-        (status = 200, description = "Card deleted"),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Card not found")
-    )
-)]
  
 async fn delete_card(
     State(state): State<Arc<AppState>>,
@@ -156,20 +106,6 @@ async fn delete_card(
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
-#[utoipa::path(
-    put,
-    path = "/cards/{id}/move",
-    tag = "cards",
-    request_body = MoveCardRequest,
-    params(
-        ("id" = String, Path, description = "Card ID")
-    ),
-    responses(
-        (status = 200, description = "Card moved", body = serde_json::Value),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Card not found")
-    )
-)]
  
 async fn move_card(
     State(state): State<Arc<AppState>>,
@@ -194,19 +130,6 @@ async fn move_card(
     Ok(Json(serde_json::json!(card)))
 }
 
-#[utoipa::path(
-    post,
-    path = "/cards/{id}/members",
-    tag = "cards",
-    request_body(content = serde_json::Value, description = "Member data"),
-    params(
-        ("id" = String, Path, description = "Card ID")
-    ),
-    responses(
-        (status = 200, description = "Member added"),
-        (status = 401, description = "Unauthorized")
-    )
-)]
  
 async fn add_member(
     State(state): State<Arc<AppState>>,
@@ -225,19 +148,6 @@ async fn add_member(
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
-#[utoipa::path(
-    delete,
-    path = "/cards/{id}/members",
-    tag = "cards",
-    request_body(content = serde_json::Value, description = "Member data"),
-    params(
-        ("id" = String, Path, description = "Card ID")
-    ),
-    responses(
-        (status = 200, description = "Member removed"),
-        (status = 401, description = "Unauthorized")
-    )
-)]
  
 async fn remove_member(
     State(state): State<Arc<AppState>>,
@@ -253,19 +163,6 @@ async fn remove_member(
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
-#[utoipa::path(
-    post,
-    path = "/cards/{id}/labels",
-    tag = "cards",
-    request_body(content = serde_json::Value, description = "Label data"),
-    params(
-        ("id" = String, Path, description = "Card ID")
-    ),
-    responses(
-        (status = 200, description = "Label added"),
-        (status = 401, description = "Unauthorized")
-    )
-)]
  
 async fn add_label(
     State(state): State<Arc<AppState>>,
@@ -281,19 +178,6 @@ async fn add_label(
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
-#[utoipa::path(
-    delete,
-    path = "/cards/{id}/labels",
-    tag = "cards",
-    request_body(content = serde_json::Value, description = "Label data"),
-    params(
-        ("id" = String, Path, description = "Card ID")
-    ),
-    responses(
-        (status = 200, description = "Label removed"),
-        (status = 401, description = "Unauthorized")
-    )
-)]
  
 async fn remove_label(
     State(state): State<Arc<AppState>>,
@@ -311,19 +195,6 @@ async fn remove_label(
 
 // ---- Checklists ----
 
-#[utoipa::path(
-    post,
-    path = "/cards/{id}/task-lists",
-    tag = "cards",
-    request_body = CreateTaskListRequest,
-    params(
-        ("id" = String, Path, description = "Card ID")
-    ),
-    responses(
-        (status = 200, description = "Task list created", body = serde_json::Value),
-        (status = 401, description = "Unauthorized")
-    )
-)]
  
 async fn create_task_list(
     State(state): State<Arc<AppState>>,
@@ -336,21 +207,6 @@ async fn create_task_list(
     Ok(Json(serde_json::json!(tl)))
 }
 
-#[utoipa::path(
-    put,
-    path = "/cards/{id}/task-lists/{tlid}",
-    tag = "cards",
-    request_body(content = serde_json::Value, description = "Task list update data"),
-    params(
-        ("id" = String, Path, description = "Card ID"),
-        ("tlid" = String, Path, description = "Task list ID")
-    ),
-    responses(
-        (status = 200, description = "Task list updated", body = serde_json::Value),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Task list not found")
-    )
-)]
  
 async fn update_task_list(
     State(state): State<Arc<AppState>>,
@@ -369,20 +225,6 @@ async fn update_task_list(
     Ok(Json(serde_json::json!(tl)))
 }
 
-#[utoipa::path(
-    delete,
-    path = "/cards/{id}/task-lists/{tlid}",
-    tag = "cards",
-    params(
-        ("id" = String, Path, description = "Card ID"),
-        ("tlid" = String, Path, description = "Task list ID")
-    ),
-    responses(
-        (status = 200, description = "Task list deleted"),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Task list not found")
-    )
-)]
  
 async fn delete_task_list(
     State(state): State<Arc<AppState>>,
@@ -395,20 +237,6 @@ async fn delete_task_list(
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
-#[utoipa::path(
-    post,
-    path = "/cards/{id}/task-lists/{tlid}/tasks",
-    tag = "cards",
-    request_body = CreateTaskRequest,
-    params(
-        ("id" = String, Path, description = "Card ID"),
-        ("tlid" = String, Path, description = "Task list ID")
-    ),
-    responses(
-        (status = 200, description = "Task created", body = serde_json::Value),
-        (status = 401, description = "Unauthorized")
-    )
-)]
  
 async fn create_task(
     State(state): State<Arc<AppState>>,
@@ -422,22 +250,6 @@ async fn create_task(
     Ok(Json(serde_json::json!(task)))
 }
 
-#[utoipa::path(
-    put,
-    path = "/cards/{id}/task-lists/{tlid}/tasks/{tid}",
-    tag = "cards",
-    request_body = UpdateTaskRequest,
-    params(
-        ("id" = String, Path, description = "Card ID"),
-        ("tlid" = String, Path, description = "Task list ID"),
-        ("tid" = String, Path, description = "Task ID")
-    ),
-    responses(
-        (status = 200, description = "Task updated", body = serde_json::Value),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Task not found")
-    )
-)]
  
 async fn update_task(
     State(state): State<Arc<AppState>>,
@@ -457,21 +269,6 @@ async fn update_task(
     Ok(Json(serde_json::json!(task)))
 }
 
-#[utoipa::path(
-    delete,
-    path = "/cards/{id}/task-lists/{tlid}/tasks/{tid}",
-    tag = "cards",
-    params(
-        ("id" = String, Path, description = "Card ID"),
-        ("tlid" = String, Path, description = "Task list ID"),
-        ("tid" = String, Path, description = "Task ID")
-    ),
-    responses(
-        (status = 200, description = "Task deleted"),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Task not found")
-    )
-)]
  
 async fn delete_task(
     State(state): State<Arc<AppState>>,
@@ -484,19 +281,6 @@ async fn delete_task(
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
-#[utoipa::path(
-    get,
-    path = "/cards/{id}/comments",
-    tag = "cards",
-    operation_id = "cards_list_comments",
-    params(
-        ("id" = String, Path, description = "Card ID")
-    ),
-    responses(
-        (status = 200, description = "List of comments", body = serde_json::Value),
-        (status = 401, description = "Unauthorized")
-    )
-)]
  
 async fn list_comments(
     State(state): State<Arc<AppState>>,
@@ -509,18 +293,6 @@ async fn list_comments(
     Ok(Json(serde_json::json!(comments)))
 }
 
-#[utoipa::path(
-    get,
-    path = "/cards/{id}/actions",
-    tag = "cards",
-    params(
-        ("id" = String, Path, description = "Card ID")
-    ),
-    responses(
-        (status = 200, description = "List of actions", body = serde_json::Value),
-        (status = 401, description = "Unauthorized")
-    )
-)]
 async fn list_actions(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,

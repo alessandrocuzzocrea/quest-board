@@ -1,9 +1,10 @@
 use uuid::Uuid;
 
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use ts_rs::TS;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, TS)]
+#[ts(export)]
 pub struct Attachment {
     pub id: Uuid,
     pub card_id: Uuid,

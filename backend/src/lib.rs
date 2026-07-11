@@ -1,5 +1,4 @@
 pub mod db;
-pub mod api_doc;
 pub mod error;
 pub mod handlers;
 pub mod models;
@@ -10,8 +9,6 @@ pub mod session;
 use std::sync::Arc;
 use tower_http::services::fs::ServeDir;
 use tower_sessions::cookie::SameSite;
-use utoipa_swagger_ui::SwaggerUi;
-use utoipa::OpenApi;
 
 use session::PgSessionStore;
 
@@ -44,7 +41,6 @@ pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router
     );
 
     axum::Router::new()
-        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api_doc::ApiDoc::openapi()))
         .nest("/api/v1", api)
         .fallback_service(static_files)
         .layer(session_layer)

@@ -7,9 +7,7 @@
     "dev": "vite dev",
     "build": "npm run gen:types && vite build",
     "preview": "vite preview",
-    "gen:spec": "cargo run --manifest-path ../backend/Cargo.toml --bin gen_openapi",
-    "gen:types": "npm run gen:spec && npx openapi-typescript openapi.json -o src/lib/types/api.ts",
-    "dev:types": "npm run gen:types"
+    "gen:types": "cd ../backend && TS_RS_EXPORT_DIR=../frontend/src/lib/types/bindings cargo test --lib 2>&1 | tail -1"
   },
   "keywords": [],
   "author": "",
@@ -23,8 +21,5 @@
     "svelte": "^5.56.4",
     "svelte-check": "^4.7.2",
     "vite": "^8.1.4"
-  },
-  "dependencies": {
-    "openapi-fetch": "^0.17.0"
   }
 }

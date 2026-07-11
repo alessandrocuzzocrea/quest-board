@@ -22,18 +22,6 @@ async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppErr
     uuid::Uuid::parse_str(&uid).map_err(|_| AppError::Internal("invalid user id".into()))
 }
 
-#[utoipa::path(
-    get,
-    path = "/labels/board/{board_id}",
-    tag = "labels",
-    params(
-        ("board_id" = String, Path, description = "Board ID")
-    ),
-    responses(
-        (status = 200, description = "List of labels", body = serde_json::Value),
-        (status = 401, description = "Unauthorized")
-    )
-)]
  
 async fn list_labels(
     State(state): State<Arc<AppState>>,
@@ -46,16 +34,6 @@ async fn list_labels(
     Ok(Json(serde_json::json!(labels)))
 }
 
-#[utoipa::path(
-    post,
-    path = "/labels/",
-    tag = "labels",
-    request_body = CreateLabelRequest,
-    responses(
-        (status = 200, description = "Label created", body = serde_json::Value),
-        (status = 401, description = "Unauthorized")
-    )
-)]
  
 async fn create_label(
     State(state): State<Arc<AppState>>,
@@ -71,20 +49,6 @@ async fn create_label(
     Ok(Json(serde_json::json!(label)))
 }
 
-#[utoipa::path(
-    put,
-    path = "/labels/{id}",
-    tag = "labels",
-    request_body = UpdateLabelRequest,
-    params(
-        ("id" = String, Path, description = "Label ID")
-    ),
-    responses(
-        (status = 200, description = "Label updated", body = serde_json::Value),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Label not found")
-    )
-)]
  
 async fn update_label(
     State(state): State<Arc<AppState>>,
@@ -112,19 +76,6 @@ async fn update_label(
     Ok(Json(serde_json::json!(label)))
 }
 
-#[utoipa::path(
-    delete,
-    path = "/labels/{id}",
-    tag = "labels",
-    params(
-        ("id" = String, Path, description = "Label ID")
-    ),
-    responses(
-        (status = 200, description = "Label deleted"),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Label not found")
-    )
-)]
 async fn delete_label(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,

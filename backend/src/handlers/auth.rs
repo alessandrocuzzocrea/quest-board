@@ -19,17 +19,6 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/me", axum::routing::get(me))
 }
 
-#[utoipa::path(
-    post,
-    path = "/auth/register",
-    tag = "auth",
-    request_body = RegisterRequest,
-    responses(
-        (status = 200, description = "User registered successfully", body = serde_json::Value),
-        (status = 400, description = "Invalid input"),
-        (status = 401, description = "Unauthorized")
-    )
-)]
  
 async fn register(
     State(state): State<Arc<AppState>>,
@@ -54,16 +43,6 @@ async fn register(
     Ok(Json(serde_json::json!({"user": {"id": user.id.to_string(), "email": req.email, "name": req.name, "role": "user"}})))
 }
 
-#[utoipa::path(
-    post,
-    path = "/auth/login",
-    tag = "auth",
-    request_body = LoginRequest,
-    responses(
-        (status = 200, description = "Logged in successfully", body = serde_json::Value),
-        (status = 401, description = "Invalid email or password")
-    )
-)]
  
 async fn login(
     State(state): State<Arc<AppState>>,
@@ -86,29 +65,12 @@ async fn login(
     Ok(Json(serde_json::json!({"user": UserResponse::from(user)})))
 }
 
-#[utoipa::path(
-    post,
-    path = "/auth/logout",
-    tag = "auth",
-    responses(
-        (status = 200, description = "Logged out successfully")
-    )
-)]
  
 async fn logout(session: tower_sessions::Session) -> Result<Json<serde_json::Value>, AppError> {
     session.flush().await.map_err(|e| AppError::Internal(e.to_string()))?;
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
-#[utoipa::path(
-    get,
-    path = "/auth/me",
-    tag = "auth",
-    responses(
-        (status = 200, description = "Current user info", body = serde_json::Value),
-        (status = 401, description = "Not logged in")
-    )
-)]
 async fn me(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,

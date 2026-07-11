@@ -1,9 +1,10 @@
 use uuid::Uuid;
 
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use ts_rs::TS;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, TS)]
+#[ts(export)]
 pub struct User {
     pub id: Uuid,
     pub email: String,
@@ -15,21 +16,24 @@ pub struct User {
     pub updated_at: String,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, TS)]
+#[ts(export)]
 pub struct RegisterRequest {
     pub email: String,
     pub password: String,
     pub name: String,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, TS)]
+#[ts(export)]
 pub struct LoginRequest {
     pub email: String,
     pub password: String,
 }
 
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, TS)]
+#[ts(export)]
 pub struct UserResponse {
     pub id: Uuid,
     pub email: String,

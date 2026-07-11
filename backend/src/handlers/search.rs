@@ -16,18 +16,6 @@ pub fn router() -> Router<Arc<AppState>> {
     Router::new().route("/", get(search))
 }
 
-#[utoipa::path(
-    get,
-    path = "/search/",
-    tag = "search",
-    params(
-        ("q" = String, Query, description = "Search query")
-    ),
-    responses(
-        (status = 200, description = "Search results", body = serde_json::Value),
-        (status = 401, description = "Unauthorized")
-    )
-)]
 async fn search(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,

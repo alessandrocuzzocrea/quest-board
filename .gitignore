@@ -7,3 +7,4 @@ node_modules/
 *.swp
 openapi.json
 .env
+frontend/src/lib/types/bindings/

@@ -21,16 +21,6 @@ async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppErr
     uuid::Uuid::parse_str(&uid).map_err(|_| AppError::Internal("invalid user id".into()))
 }
 
-#[utoipa::path(
-    post,
-    path = "/lists/",
-    tag = "lists",
-    request_body = CreateListRequest,
-    responses(
-        (status = 200, description = "List created", body = serde_json::Value),
-        (status = 401, description = "Unauthorized")
-    )
-)]
  
 async fn create_list(
     State(state): State<Arc<AppState>>,
@@ -41,19 +31,6 @@ async fn create_list(
     let list = repository::list_repo::create(&state.db, &req.board_id, req.name.as_deref().unwrap_or("New List"), 65536.0).await?;
     Ok(Json(serde_json::json!(list)))
 }
-#[utoipa::path(
-    get,
-    path = "/lists/{id}",
-    tag = "lists",
-    params(
-        ("id" = String, Path, description = "List ID")
-    ),
-    responses(
-        (status = 200, description = "List with cards", body = serde_json::Value),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "List not found")
-    )
-)]
  
 async fn get_list(
     State(state): State<Arc<AppState>>,
@@ -77,20 +54,6 @@ async fn get_list(
     Ok(Json(serde_json::json!({"list": list, "cards": cards})))
 }
 
-#[utoipa::path(
-    put,
-    path = "/lists/{id}",
-    tag = "lists",
-    request_body = UpdateListRequest,
-    params(
-        ("id" = String, Path, description = "List ID")
-    ),
-    responses(
-        (status = 200, description = "List updated", body = serde_json::Value),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "List not found")
-    )
-)]
  
 async fn update_list(
     State(state): State<Arc<AppState>>,
@@ -118,19 +81,6 @@ async fn update_list(
     Ok(Json(serde_json::json!(list)))
 }
 
-#[utoipa::path(
-    delete,
-    path = "/lists/{id}",
-    tag = "lists",
-    params(
-        ("id" = String, Path, description = "List ID")
-    ),
-    responses(
-        (status = 200, description = "List deleted"),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "List not found")
-    )
-)]
 async fn delete_list(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,

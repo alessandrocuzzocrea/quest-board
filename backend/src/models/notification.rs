@@ -1,10 +1,11 @@
 use uuid::Uuid;
 
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use ts_rs::TS;
 
 #[allow(dead_code)]
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, TS)]
+#[ts(export)]
 pub struct Notification {
     pub id: Uuid,
     pub user_id: Uuid,
