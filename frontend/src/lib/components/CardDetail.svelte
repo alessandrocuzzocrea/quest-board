@@ -2,7 +2,7 @@
 	import { api } from '$lib/api';
 	import LabelBadge from './LabelBadge.svelte';
 	import MemberAvatar from './MemberAvatar.svelte';
-	import type { CardWithMembers, CommentWithUser, Action, Task, TaskListWithTasks } from '$lib/types/bindings';
+	import type { CardWithMembers, CommentWithUser, Action, Task, TaskListWithTasks, Label } from '$lib/types/bindings';
 
 	let {
 		cardId = '',
@@ -19,6 +19,8 @@
 	let editingDesc = $state(false);
 	let editDesc = $state('');
 	let commentText = $state('');
+	let boardLabels = $state<Label[]>([]);
+	let showLabelPicker = $state(false);
 	let saving = $state(false);
 
 	async function load() {
@@ -31,7 +33,20 @@
 				api<Action[]>(`/cards/${cardId}/actions`),
 			]);
 			card = cd; comments = co; actions = ac;
+			boardLabels = await api<Label[]>(`/labels/board/${cd.board_id}`);
 		} catch { card = null; } finally { loading = false; }
+	}
+
+	async function toggleLabel(labelId: string) {
+		if (!card) return;
+		const hasLabel = card.labels.some(l => l.id === labelId);
+		try {
+			await api(`/cards/${cardId}/labels`, {
+				method: hasLabel ? 'DELETE' : 'POST',
+				body: JSON.stringify({ label_id: labelId }),
+			});
+			card = await api<CardWithMembers>(`/cards/${cardId}`);
+		} catch { /* ignore */ }
 	}
 
 	async function saveName() {
@@ -112,10 +127,31 @@
 			{#if loading}
 				<div class="loading">Loading...</div>
 			{:else if card}
-				<section>
-					<h3>Labels</h3>
-					{#if card.labels.length > 0}<div class="labels">{#each card.labels as label}<LabelBadge name={label.name} color={label.color} />{/each}</div>{:else}<p class="empty">No labels.</p>{/if}
-				</section>
+			<section>
+				<h3>Labels</h3>
+				<div class="labels">
+					{#each card.labels as label}
+						<LabelBadge name={label.name} color={label.color} />
+					{/each}
+					<button class="label-picker-btn" onclick={() => showLabelPicker = !showLabelPicker}>
+						+
+					</button>
+				</div>
+				{#if showLabelPicker}
+					<div class="label-picker">
+						{#each boardLabels as lbl}
+							<label class="label-picker-item">
+								<input
+									type="checkbox"
+									checked={card.labels.some(l => l.id === lbl.id)}
+									onchange={() => toggleLabel(lbl.id)}
+								/>
+								<span class="label-picker-swatch" style="background: {lbl.color}">{lbl.name}</span>
+							</label>
+						{/each}
+					</div>
+				{/if}
+			</section>
 
 				<section>
 					<h3>Members</h3>
@@ -157,6 +193,12 @@
 	.panel-body { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; }
 	section h3 { margin: 0 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; color: #888; letter-spacing: 0.5px; }
 	.labels { display: flex; flex-wrap: wrap; gap: 4px; }
+	.label-picker-btn { background: #f0f0f0; border: none; border-radius: 4px; width: 28px; height: 24px; font-size: 14px; cursor: pointer; color: #666; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+	.label-picker-btn:hover { background: #e0e0e0; }
+	.label-picker { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+	.label-picker-item { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; padding: 2px 0; }
+	.label-picker-item input { margin: 0; }
+	.label-picker-swatch { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; color: white; line-height: 1.4; }
 	.members { display: flex; flex-direction: column; gap: 6px; }
 	.member-chip { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 	.desc-btn { font-size: 14px; line-height: 1.5; color: #333; cursor: pointer; background: none; border: none; text-align: left; padding: 4px; border-radius: 4px; width: 100%; font-family: inherit; white-space: pre-wrap; }
