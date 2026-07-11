@@ -8,7 +8,7 @@
 		listId = '',
 		cardCount = 0,
 		color = null as string | null,
-		onDropCard = undefined as ((cardId: string, sourceListId: string, targetListId: string) => void) | undefined,
+		onDropCard = undefined as ((cardId: string, sourceListId: string, targetListId: string, targetIndex?: number) => void) | undefined,
 		onCardClick = undefined as ((cardId: string) => void) | undefined,
 		onDeleteCard = undefined as ((cardId: string) => void) | undefined,
 		onDeleteList = undefined as ((listId: string) => void) | undefined,
@@ -19,7 +19,7 @@
 		listId: string;
 		cardCount?: number;
 		color?: string | null;
-		onDropCard?: (cardId: string, sourceListId: string, targetListId: string) => void;
+		onDropCard?: (cardId: string, sourceListId: string, targetListId: string, targetIndex?: number) => void;
 		onCardClick?: (cardId: string) => void;
 		onDeleteCard?: (cardId: string) => void;
 		onDeleteList?: (listId: string) => void;
@@ -61,9 +61,25 @@
 		if (!raw) return;
 		try {
 			const { cardId, sourceListId } = JSON.parse(raw);
-			if (sourceListId !== listId) {
-				onDropCard?.(cardId, sourceListId, listId);
+
+			const cardList = (e.currentTarget as HTMLElement)?.querySelector('.card-list');
+			const cardElements = cardList?.querySelectorAll('.card-wrapper');
+			let targetIndex: number | undefined;
+			if (cardElements) {
+				const dropY = e.clientY;
+				for (let i = 0; i < cardElements.length; i++) {
+					const rect = cardElements[i].getBoundingClientRect();
+					if (dropY < rect.top + rect.height / 2) {
+						targetIndex = i;
+						break;
+					}
+				}
+				if (targetIndex === undefined && cardElements.length > 0) {
+					targetIndex = cardElements.length;
+				}
 			}
+
+			onDropCard?.(cardId, sourceListId, listId, targetIndex);
 		} catch { /* ignore */ }
 	}
 </script>

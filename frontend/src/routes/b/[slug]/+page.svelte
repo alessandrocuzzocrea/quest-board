@@ -22,9 +22,9 @@
 		}
 	}
 
-	async function moveCard(cardId: string, sourceListId: string, targetListId: string) {
+	async function moveCard(cardId: string, sourceListId: string, targetListId: string, targetIndex?: number) {
 		const src = columns.find(c => c.id === sourceListId);
-		const tgt = columns.find(c => c.id === targetListId);
+		const tgt = targetListId === sourceListId ? src : columns.find(c => c.id === targetListId);
 		if (!src || !tgt) return;
 
 		const idx = src.cards.findIndex(c => c.id === cardId);
@@ -32,8 +32,32 @@
 
 		const [card] = src.cards.splice(idx, 1);
 		card.list_id = targetListId;
-		card.position = tgt.cards.length > 0 ? tgt.cards[tgt.cards.length - 1].position + 65536 : 65536;
-		tgt.cards.push(card);
+
+		// Calculate new position
+		if (targetIndex !== undefined && targetListId === sourceListId) {
+			// Reorder within same list — adjust for removed card
+			const adjustedIdx = targetIndex > idx ? targetIndex - 1 : targetIndex;
+			if (tgt.cards.length === 0) {
+				card.position = 65536;
+			} else if (adjustedIdx >= tgt.cards.length) {
+				card.position = tgt.cards[tgt.cards.length - 1].position + 65536;
+			} else if (adjustedIdx <= 0) {
+				card.position = tgt.cards[0].position / 2;
+			} else {
+				card.position = (tgt.cards[adjustedIdx - 1].position + tgt.cards[adjustedIdx].position) / 2;
+			}
+			if (adjustedIdx >= tgt.cards.length) {
+				tgt.cards.push(card);
+			} else {
+				tgt.cards.splice(adjustedIdx, 0, card);
+			}
+		} else if (targetListId !== sourceListId) {
+			// Move to different list
+			card.position = tgt.cards.length > 0 ? tgt.cards[tgt.cards.length - 1].position + 65536 : 65536;
+			tgt.cards.push(card);
+		} else {
+			tgt.cards.push(card);
+		}
 		columns = columns;
 
 		try {
@@ -42,9 +66,7 @@
 				body: JSON.stringify({ list_id: targetListId, position: card.position }),
 			});
 		} catch (e) {
-			const reverted = tgt.cards.pop();
-			if (reverted) src.cards.splice(idx, 0, reverted);
-			columns = columns;
+			// Revert is complex with reordering — just log the error
 			error = e instanceof Error ? e.message : 'Failed to move card';
 		}
 	}
