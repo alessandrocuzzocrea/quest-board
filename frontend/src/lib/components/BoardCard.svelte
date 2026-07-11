@@ -1,5 +1,5 @@
 <script lang="ts">
-	let { name = 'Untitled', cardCount = 0 }: { name: string; cardCount: number } = $props();
+	let { name = 'Untitled', cardCount = 0 }: { name: string; cardCount?: number } = $props();
 </script>
 
 <div class="card">
