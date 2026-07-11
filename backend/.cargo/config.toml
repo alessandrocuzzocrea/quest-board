@@ -1,2 +1,2 @@
 [alias]
-dev = "watch -x run"
+dev = "watch -w src -x run"
