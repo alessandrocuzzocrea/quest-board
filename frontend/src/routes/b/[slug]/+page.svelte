@@ -266,5 +266,7 @@
 	}
 	.add-list-input::placeholder {
 		color: rgba(255,255,255,0.7);
-.undo-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 8px; display: flex; align-items: center; gap: 12px; font-size: 14px; z-index: 200; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-.undo-toast button { background: var(--accent, #0079bf); color: white; border: none; border-radius: 4px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 13px; }
+	}
+	.undo-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 8px; display: flex; align-items: center; gap: 12px; font-size: 14px; z-index: 200; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+	.undo-toast button { background: var(--accent, #0079bf); color: white; border: none; border-radius: 4px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 13px; }
+</style>
