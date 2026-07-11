@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "vite dev",
+    "dev": "concurrently -n back,front -c cyan,green \"cd ../backend && cargo dev\" \"vite dev --host\"",
     "build": "npm run gen:types && vite build",
     "preview": "vite preview",
     "gen:types": "cd ../backend && TS_RS_EXPORT_DIR=../frontend/src/lib/types/bindings cargo test --lib 2>&1 | tail -1",
@@ -21,6 +21,7 @@
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.69.2",
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
+    "concurrently": "^10.0.3",
     "svelte": "^5.56.4",
     "svelte-check": "^4.7.2",
     "vite": "^8.1.4",
