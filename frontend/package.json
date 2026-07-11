@@ -7,7 +7,7 @@
     "dev": "concurrently -n back,front -c cyan,green \"cd ../backend && cargo dev\" \"vite dev --host\"",
     "build": "npm run gen:types && vite build",
     "preview": "vite preview",
-    "gen:types": "cd ../backend && TS_RS_EXPORT_DIR=../frontend/src/lib/types/bindings cargo test --lib 2>&1 | tail -1",
+    "gen:types": "cd ../backend && TS_RS_EXPORT_DIR=../frontend/src/lib/types/bindings cargo test --lib 2>&1",
     "lint:openapi": "npx @redocly/cli lint --config ../.redocly.yaml ../openapi.yaml",
     "test": "vitest run",
     "test:watch": "vitest"
