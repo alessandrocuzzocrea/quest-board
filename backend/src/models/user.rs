@@ -9,6 +9,7 @@ pub struct User {
     pub id: Uuid,
     pub email: String,
     #[serde(skip_serializing)]
+    #[ts(skip)]
     pub password_hash: String,
     pub name: String,
     pub role: String,
