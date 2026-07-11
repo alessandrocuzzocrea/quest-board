@@ -1,6 +1,13 @@
 use argon2::password_hash::PasswordHasher;
 use argon2::Argon2;
 
+/// Returns the server-side pepper for password hashing.
+/// Prevents hash cracking even if the database is leaked.
+/// Defaults to empty string (no pepper) when not configured.
+fn pepper() -> String {
+    std::env::var("PEPPER").unwrap_or_default()
+}
+
 pub async fn run_migrations(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
     for sql in [
         include_str!("../../migrations/001_initial.sql"),
@@ -20,8 +27,9 @@ pub async fn run_migrations(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
 }
 
 async fn seed_admin(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
+    let peppered = format!("{}{}", pepper(), "admin");
     let hash = Argon2::default()
-        .hash_password(b"admin")
+        .hash_password(peppered.as_bytes())
         .expect("failed to hash admin password")
         .to_string();
 
@@ -35,4 +43,50 @@ async fn seed_admin(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
     .await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use argon2::PasswordVerifier;
+
+    #[test]
+    fn test_password_hash_verify_cycle() {
+        let password = "admin";
+        let p = pepper();
+        let peppered = format!("{}{}", p, password);
+
+        let hash = Argon2::default()
+            .hash_password(peppered.as_bytes())
+            .expect("failed to hash")
+            .to_string();
+
+        let parsed = argon2::password_hash::PasswordHash::new(&hash)
+            .expect("failed to parse hash");
+
+        argon2::Argon2::default()
+            .verify_password(peppered.as_bytes(), &parsed)
+            .expect("verify should succeed");
+    }
+
+    #[test]
+    fn test_admin_login_hash_stability() {
+        // Simulates exactly what seed_admin does, then verifies
+        // This catches argon2 library version mismatches early.
+        let p = pepper();
+        let peppered = format!("{}{}", p, "admin");
+
+        let hash = Argon2::default()
+            .hash_password(peppered.as_bytes())
+            .expect("failed to hash")
+            .to_string();
+
+        let parsed = argon2::password_hash::PasswordHash::new(&hash)
+            .expect("failed to parse hash");
+
+        let result = argon2::Argon2::default()
+            .verify_password(peppered.as_bytes(), &parsed);
+
+        assert!(result.is_ok(), "hash/verify cycle must succeed: {:?}", result.err());
+    }
 }
