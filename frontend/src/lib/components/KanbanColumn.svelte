@@ -10,6 +10,8 @@
 		color = null as string | null,
 		onDropCard = undefined as ((cardId: string, sourceListId: string, targetListId: string) => void) | undefined,
 		onCardClick = undefined as ((cardId: string) => void) | undefined,
+		onDeleteCard = undefined as ((cardId: string) => void) | undefined,
+		onDeleteList = undefined as ((listId: string) => void) | undefined,
 	}: {
 		title: string;
 		cards: CardWithMembers[];
@@ -18,6 +20,8 @@
 		color?: string | null;
 		onDropCard?: (cardId: string, sourceListId: string, targetListId: string) => void;
 		onCardClick?: (cardId: string) => void;
+		onDeleteCard?: (cardId: string) => void;
+		onDeleteList?: (listId: string) => void;
 	} = $props();
 
 	let dropActive = $state(false);
@@ -68,23 +72,28 @@
 	<header class="col-header">
 		<h3 class="col-title">{title}</h3>
 		<span class="col-count">{cardCount}</span>
+		<button class="col-delete-btn" title="Delete list" onclick={() => onDeleteList?.(listId)}>✕</button>
 	</header>
 
 	<div class="card-list">
 		{#each cards as card (card.id)}
-			<Card
-				id={card.id}
-				listId={listId}
-				name={card.name}
-				description={card.description}
-				labels={card.labels}
-				members={card.members}
-				dueDate={card.due_date}
-				onclick={() => onCardClick?.(card.id)}
-				isClosed={card.is_closed}
-				commentsCount={card.comments_count}
-				checklists={card.checklists}
-			/>
+			<div class="card-wrapper">
+				<Card
+					id={card.id}
+					listId={listId}
+					name={card.name}
+					description={card.description}
+					labels={card.labels}
+					members={card.members}
+					dueDate={card.due_date}
+					isDueCompleted={card.is_due_completed}
+					isClosed={card.is_closed}
+					commentsCount={card.comments_count}
+					checklists={card.checklists}
+					onclick={() => onCardClick?.(card.id)}
+				/>
+				<button class="card-delete-btn" title="Delete card" onclick={() => onDeleteCard?.(card.id)}>✕</button>
+			</div>
 		{/each}
 
 		{#if cards.length === 0}
@@ -133,6 +142,36 @@
 		padding: 1px 7px;
 		border-radius: 8px;
 		font-weight: 600;
+	}
+	.col-delete-btn, .card-delete-btn {
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: #bbb;
+		font-size: 12px;
+		padding: 2px 4px;
+		border-radius: 3px;
+		opacity: 0;
+		transition: opacity 0.12s, color 0.12s;
+		flex-shrink: 0;
+	}
+	.column:hover .col-delete-btn,
+	.card-wrapper:hover .card-delete-btn {
+		opacity: 1;
+	}
+	.col-delete-btn:hover, .card-delete-btn:hover {
+		color: #d04444;
+	}
+	.card-wrapper {
+		display: flex;
+		align-items: flex-start;
+		gap: 4px;
+	}
+	.card-wrapper > :first-child {
+		flex: 1;
+	}
+	.card-delete-btn {
+		margin-top: 6px;
 	}
 	.card-list {
 		display: flex;

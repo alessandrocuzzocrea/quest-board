@@ -35,3 +35,22 @@ describe('KanbanColumn', () => {
 		expect(screen.queryByText('Drop cards here')).toBeNull();
 	});
 });
+
+describe('KanbanColumn delete', () => {
+	it('calls onDeleteCard when clicking x on a card', () => {
+		const onDeleteCard = vi.fn();
+		const cards = [mockCard('c1', 'Task A')];
+		render(KanbanColumn, { title: 'List', listId: 'l1', cards, onDeleteCard });
+		const deleteBtn = screen.getByTitle('Delete card');
+		deleteBtn.click();
+		expect(onDeleteCard).toHaveBeenCalledWith('c1');
+	});
+
+	it('calls onDeleteList when clicking x on column header', () => {
+		const onDeleteList = vi.fn();
+		render(KanbanColumn, { title: 'List', listId: 'l1', cards: [], onDeleteList });
+		const deleteBtn = screen.getByTitle('Delete list');
+		deleteBtn.click();
+		expect(onDeleteList).toHaveBeenCalledWith('l1');
+	});
+});
