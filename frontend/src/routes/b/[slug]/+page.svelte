@@ -225,24 +225,17 @@ let chatOpen = $state(false);
 	onclose={() => selectedCardId = null}
 />
 
-<<<<<<< HEAD
 <ChatPanel
 	boardId={initial.board.id}
 	open={chatOpen}
 	onclose={() => chatOpen = false}
 />
-=======
 {#if undoAction}
 	<div class="undo-toast">
 		<span>Card moved.</span>
 		<button onclick={performUndo} class="undo-button">Undo</button>
 	</div>
 {/if}
-<<<<<<< HEAD
->>>>>>> main
-
-=======
->>>>>>> origin/main
 <style>
 	.board-header {
 		display: flex;
