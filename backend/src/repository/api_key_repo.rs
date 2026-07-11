@@ -5,7 +5,7 @@ use time::OffsetDateTime;
 
 pub async fn list_by_user(pool: &sqlx::PgPool, user_id: Uuid) -> Result<Vec<ApiKey>, AppError> {
     Ok(sqlx::query_as(
-        "SELECT * FROM api_keys WHERE user_id = $1 ORDER BY created_at DESC",
+        "SELECT * FROM api_keys WHERE user_id = $1 AND is_active = true ORDER BY created_at DESC",
     )
     .bind(user_id)
     .fetch_all(pool)
