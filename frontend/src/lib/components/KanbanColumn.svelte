@@ -10,6 +10,7 @@
 		color = null as string | null,
 		onDropCard = undefined as ((cardId: string, sourceListId: string, targetListId: string) => void) | undefined,
 		onCardClick = undefined as ((cardId: string) => void) | undefined,
+		onAddCard = undefined as ((listId: string, name: string) => void) | undefined,
 	}: {
 		title: string;
 		cards: CardWithMembers[];
@@ -18,9 +19,19 @@
 		color?: string | null;
 		onDropCard?: (cardId: string, sourceListId: string, targetListId: string) => void;
 		onCardClick?: (cardId: string) => void;
+		onAddCard?: (listId: string, name: string) => void;
 	} = $props();
 
 	let dropActive = $state(false);
+	let newCardName = $state('');
+
+	function handleCardKeydown(e: KeyboardEvent) {
+		if (e.key !== 'Enter') return;
+		const name = newCardName.trim();
+		if (!name) return;
+		onAddCard?.(listId, name);
+		newCardName = '';
+	}
 
 	function handleDragOver(e: DragEvent) {
 		e.preventDefault();
@@ -80,16 +91,25 @@
 				labels={card.labels}
 				members={card.members}
 				dueDate={card.due_date}
-				onclick={() => onCardClick?.(card.id)}
+				isDueCompleted={card.is_due_completed}
 				isClosed={card.is_closed}
 				commentsCount={card.comments_count}
 				checklists={card.checklists}
+				onclick={() => onCardClick?.(card.id)}
 			/>
 		{/each}
 
 		{#if cards.length === 0}
 			<div class="empty-state">Drop cards here</div>
 		{/if}
+
+		<input
+			class="add-card-input"
+			type="text"
+			placeholder="+ Add card"
+			bind:value={newCardName}
+			onkeydown={handleCardKeydown}
+		/>
 	</div>
 </div>
 
@@ -151,5 +171,23 @@
 		color: #999;
 		font-size: 13px;
 		font-style: italic;
+	}
+	.add-card-input {
+		border: none;
+		border-radius: 6px;
+		padding: 8px 10px;
+		font-size: 13px;
+		background: transparent;
+		color: #555;
+		outline: none;
+		width: 100%;
+		box-sizing: border-box;
+	}
+	.add-card-input:focus {
+		background: white;
+		box-shadow: inset 0 0 0 2px var(--accent, #0079bf);
+	}
+	.add-card-input::placeholder {
+		color: #aaa;
 	}
 </style>
