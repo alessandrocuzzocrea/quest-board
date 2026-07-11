@@ -8,15 +8,14 @@
     "build": "npm run gen:types && vite build",
     "preview": "vite preview",
     "gen:types": "cd ../backend && TS_RS_EXPORT_DIR=../frontend/src/lib/types/bindings cargo test --lib 2>&1 | tail -1",
-    "lint:openapi": "npx --yes @redocly/cli lint ../backend/static/openapi.yaml",
-    "story:dev": "histoire dev",
-    "story:build": "histoire build"
+    "lint:openapi": "npx @redocly/cli lint --config ../.redocly.yaml ../openapi.yaml"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "devDependencies": {
+    "@redocly/cli": "^2.38.0",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.69.2",
     "@sveltejs/vite-plugin-svelte": "^7.2.0",

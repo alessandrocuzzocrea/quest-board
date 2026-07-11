@@ -1,0 +1,869 @@
+openapi: "3.1.0"
+info:
+  title: Quest Board API
+  version: "0.1.0"
+  description: |
+    Backend API for Quest Board. TypeScript types for all schemas
+    are auto-generated from Rust structs via ts-rs in
+    `frontend/src/lib/types/bindings/`.
+
+paths:
+  # ── Auth ──────────────────────────────────────────────────────
+  /auth/register:
+    post:
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "200":
+          description: User registered successfully
+        "400":
+          description: Invalid input or email already registered
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Log in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+        "401":
+          description: Invalid credentials
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Log out (flush session)
+      responses:
+        "200":
+          description: Logged out
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user info
+        "401":
+          description: Not logged in
+
+  # ── Boards ─────────────────────────────────────────────────────
+  /boards/:
+    get:
+      tags: [boards]
+      summary: List accessible boards
+      responses:
+        "200":
+          description: Array of boards
+        "401":
+          description: Not logged in
+
+    post:
+      tags: [boards]
+      summary: Create a board
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBoardRequest"
+      responses:
+        "200":
+          description: Board created
+        "401":
+          description: Not logged in
+
+  /boards/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [boards]
+      summary: Get full board with lists, cards, members
+      responses:
+        "200":
+          description: Full board data
+        "401":
+          description: Not logged in
+        "404":
+          description: Board not found
+    put:
+      tags: [boards]
+      summary: Update board name or position
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBoardRequest"
+      responses:
+        "200":
+          description: Board updated
+        "401":
+          description: Not logged in
+        "404":
+          description: Board not found
+    delete:
+      tags: [boards]
+      summary: Delete board
+      responses:
+        "200":
+          description: Board deleted
+        "401":
+          description: Not logged in
+        "404":
+          description: Board not found
+
+  /boards/by-slug/{slug}:
+    parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [boards]
+      summary: Get full board by URL slug
+      responses:
+        "200":
+          description: Full board data
+        "401":
+          description: Not logged in
+        "404":
+          description: Board not found
+
+  # ── Lists ──────────────────────────────────────────────────────
+  /lists/:
+    post:
+      tags: [lists]
+      summary: Create a list in a board
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateListRequest"
+      responses:
+        "200":
+          description: List created
+        "401":
+          description: Not logged in
+
+  /lists/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [lists]
+      summary: Get list with cards
+      responses:
+        "200":
+          description: List with cards
+        "401":
+          description: Not logged in
+        "404":
+          description: List not found
+    put:
+      tags: [lists]
+      summary: Update list name, position, or color
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateListRequest"
+      responses:
+        "200":
+          description: List updated
+        "401":
+          description: Not logged in
+        "404":
+          description: List not found
+    delete:
+      tags: [lists]
+      summary: Delete list
+      responses:
+        "200":
+          description: List deleted
+        "401":
+          description: Not logged in
+        "404":
+          description: List not found
+
+  # ── Cards ──────────────────────────────────────────────────────
+  /cards/:
+    post:
+      tags: [cards]
+      summary: Create a card in a list
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCardRequest"
+      responses:
+        "200":
+          description: Card created
+        "401":
+          description: Not logged in
+
+  /cards/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [cards]
+      summary: Get card details
+      responses:
+        "200":
+          description: Card details
+        "401":
+          description: Not logged in
+        "404":
+          description: Card not found
+    put:
+      tags: [cards]
+      summary: Update card fields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCardRequest"
+      responses:
+        "200":
+          description: Card updated
+        "401":
+          description: Not logged in
+        "404":
+          description: Card not found
+    delete:
+      tags: [cards]
+      summary: Delete card
+      responses:
+        "200":
+          description: Card deleted
+        "401":
+          description: Not logged in
+        "404":
+          description: Card not found
+
+  /cards/{id}/move:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [cards]
+      summary: Move card to another list/position
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MoveCardRequest"
+      responses:
+        "200":
+          description: Card moved
+        "401":
+          description: Not logged in
+        "404":
+          description: Card not found
+
+  /cards/{id}/members:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [cards]
+      summary: Add member to card
+      responses:
+        "200":
+          description: Member added
+        "401":
+          description: Not logged in
+    delete:
+      tags: [cards]
+      summary: Remove member from card
+      responses:
+        "200":
+          description: Member removed
+        "401":
+          description: Not logged in
+
+  /cards/{id}/labels:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [cards]
+      summary: Add label to card
+      responses:
+        "200":
+          description: Label added
+        "401":
+          description: Not logged in
+    delete:
+      tags: [cards]
+      summary: Remove label from card
+      responses:
+        "200":
+          description: Label removed
+        "401":
+          description: Not logged in
+
+  /cards/{id}/task-lists:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [cards]
+      summary: Create a checklist on a card
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskListRequest"
+      responses:
+        "200":
+          description: Task list created
+        "401":
+          description: Not logged in
+
+  /cards/{id}/task-lists/{tlid}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: tlid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [cards]
+      summary: Update checklist name
+      responses:
+        "200":
+          description: Task list updated
+        "401":
+          description: Not logged in
+        "404":
+          description: Not found
+    delete:
+      tags: [cards]
+      summary: Delete checklist
+      responses:
+        "200":
+          description: Task list deleted
+        "401":
+          description: Not logged in
+        "404":
+          description: Not found
+
+  /cards/{id}/task-lists/{tlid}/tasks:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: tlid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [cards]
+      summary: Create a task in a checklist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskRequest"
+      responses:
+        "200":
+          description: Task created
+        "401":
+          description: Not logged in
+
+  /cards/{id}/task-lists/{tlid}/tasks/{tid}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: tlid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: tid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [cards]
+      summary: Update task (name, completion, assignee)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaskRequest"
+      responses:
+        "200":
+          description: Task updated
+        "401":
+          description: Not logged in
+        "404":
+          description: Not found
+    delete:
+      tags: [cards]
+      summary: Delete task
+      responses:
+        "200":
+          description: Task deleted
+        "401":
+          description: Not logged in
+        "404":
+          description: Not found
+
+  /cards/{id}/comments:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [cards]
+      summary: List comments on a card
+      responses:
+        "200":
+          description: Array of comments
+        "401":
+          description: Not logged in
+
+  /cards/{id}/actions:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [cards]
+      summary: List activity log for a card
+      responses:
+        "200":
+          description: Array of actions
+        "401":
+          description: Not logged in
+
+  # ── Labels ─────────────────────────────────────────────────────
+  /labels/:
+    post:
+      tags: [labels]
+      summary: Create a label in a board
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLabelRequest"
+      responses:
+        "200":
+          description: Label created
+        "401":
+          description: Not logged in
+
+  /labels/board/{board_id}:
+    parameters:
+      - name: board_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [labels]
+      summary: List labels for a board
+      responses:
+        "200":
+          description: Array of labels
+        "401":
+          description: Not logged in
+
+  /labels/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [labels]
+      summary: Update label name, color, or position
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLabelRequest"
+      responses:
+        "200":
+          description: Label updated
+        "401":
+          description: Not logged in
+        "404":
+          description: Label not found
+    delete:
+      tags: [labels]
+      summary: Delete label
+      responses:
+        "200":
+          description: Label deleted
+        "401":
+          description: Not logged in
+        "404":
+          description: Label not found
+
+  # ── Comments ───────────────────────────────────────────────────
+  /comments/:
+    post:
+      tags: [comments]
+      summary: Create a comment on a card
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommentRequest"
+      responses:
+        "200":
+          description: Comment created
+        "401":
+          description: Not logged in
+
+  /comments/card/{card_id}:
+    parameters:
+      - name: card_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [comments]
+      summary: List comments for a card
+      responses:
+        "200":
+          description: Array of comments with user info
+        "401":
+          description: Not logged in
+
+  /comments/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [comments]
+      summary: Edit comment text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCommentRequest"
+      responses:
+        "200":
+          description: Comment updated
+        "401":
+          description: Not logged in
+        "404":
+          description: Comment not found
+    delete:
+      tags: [comments]
+      summary: Delete comment
+      responses:
+        "200":
+          description: Comment deleted
+        "401":
+          description: Not logged in
+        "404":
+          description: Comment not found
+
+  # ── Attachments ────────────────────────────────────────────────
+  /attachments/card/{card_id}:
+    parameters:
+      - name: card_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [attachments]
+      summary: List attachments for a card
+      responses:
+        "200":
+          description: Array of attachments
+        "401":
+          description: Not logged in
+
+  /attachments/link:
+    post:
+      tags: [attachments]
+      summary: Attach a link to a card
+      responses:
+        "200":
+          description: Link attached
+        "401":
+          description: Not logged in
+
+  /attachments/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      tags: [attachments]
+      summary: Delete attachment
+      responses:
+        "200":
+          description: Attachment deleted
+        "401":
+          description: Not logged in
+        "404":
+          description: Attachment not found
+
+  # ── Favorites ──────────────────────────────────────────────────
+  /favorites/:
+    get:
+      tags: [favorites]
+      summary: List favorites for current user
+      responses:
+        "200":
+          description: Favorited boards and cards
+        "401":
+          description: Not logged in
+    post:
+      tags: [favorites]
+      summary: Add a favorite (board or card)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFavoriteRequest"
+      responses:
+        "200":
+          description: Favorited
+        "401":
+          description: Not logged in
+
+  /favorites/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      tags: [favorites]
+      summary: Remove a favorite
+      responses:
+        "200":
+          description: Unfavorited
+        "401":
+          description: Not logged in
+        "404":
+          description: Favorite not found
+
+  # ── Search ─────────────────────────────────────────────────────
+  /search/:
+    get:
+      tags: [search]
+      summary: Search cards and boards
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search results
+        "401":
+          description: Not logged in
+
+  # ── Users ──────────────────────────────────────────────────────
+  /users/:
+    get:
+      tags: [users]
+      summary: List all users
+      responses:
+        "200":
+          description: Array of users
+
+components:
+  schemas:
+    # Referenced schemas — see bindings/ for full type definitions
+    RegisterRequest:
+      type: object
+      properties:
+        email: { type: string }
+        password: { type: string }
+        name: { type: string }
+    LoginRequest:
+      type: object
+      properties:
+        email: { type: string }
+        password: { type: string }
+    CreateBoardRequest:
+      type: object
+      properties:
+        name: { type: string }
+    UpdateBoardRequest:
+      type: object
+      properties:
+        name: { type: string }
+        position: { type: number }
+    CreateListRequest:
+      type: object
+      properties:
+        board_id: { type: string, format: uuid }
+        name: { type: string }
+    UpdateListRequest:
+      type: object
+      properties:
+        name: { type: string }
+        position: { type: number }
+        color: { type: string }
+    CreateCardRequest:
+      type: object
+      properties:
+        list_id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+    UpdateCardRequest:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        position: { type: number }
+        due_date: { type: string }
+        is_due_completed: { type: boolean }
+        is_closed: { type: boolean }
+        list_id: { type: string, format: uuid }
+    MoveCardRequest:
+      type: object
+      properties:
+        list_id: { type: string, format: uuid }
+        position: { type: number }
+    CreateTaskListRequest:
+      type: object
+      properties:
+        card_id: { type: string, format: uuid }
+        name: { type: string }
+    CreateTaskRequest:
+      type: object
+      properties:
+        name: { type: string }
+    UpdateTaskRequest:
+      type: object
+      properties:
+        name: { type: string }
+        is_completed: { type: boolean }
+        position: { type: number }
+        assignee_id: { type: string, format: uuid }
+    CreateCommentRequest:
+      type: object
+      properties:
+        card_id: { type: string, format: uuid }
+        text: { type: string }
+    UpdateCommentRequest:
+      type: object
+      properties:
+        text: { type: string }
+    CreateFavoriteRequest:
+      type: object
+      properties:
+        board_id: { type: string, format: uuid }
+        card_id: { type: string, format: uuid }
+    CreateLabelRequest:
+      type: object
+      properties:
+        board_id: { type: string, format: uuid }
+        name: { type: string }
+        color: { type: string }
+    UpdateLabelRequest:
+      type: object
+      properties:
+        name: { type: string }
+        color: { type: string }
+        position: { type: number }

@@ -32,7 +32,10 @@ jobs:
           workspaces: backend
       - run: cargo check --all-targets
       - run: cargo build --release
-      - run: createdb quest_test
+      - name: Create test database
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          createdb quest_test
         env:
           PGHOST: localhost
           PGUSER: postgres
@@ -48,6 +51,10 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -55,4 +62,4 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run build
-      - run: npx --yes @redocly/cli lint --config ../.redocly.yaml ../backend/static/openapi.yaml
+      - run: npm run lint:openapi
