@@ -8,11 +8,7 @@
 		cardId = '',
 		open = false,
 		onclose = undefined as (() => void) | undefined,
-	}: {
-		cardId: string;
-		open: boolean;
-		onclose?: () => void;
-	} = $props();
+	}: { cardId: string; open: boolean; onclose?: () => void } = $props();
 
 	let card = $state<CardWithMembers | null>(null);
 	let comments = $state<CommentWithUser[]>([]);
@@ -29,30 +25,19 @@
 		if (!cardId || !open) return;
 		loading = true;
 		try {
-			const [cardData, commentsData, actionsData] = await Promise.all([
+			const [cd, co, ac] = await Promise.all([
 				api<CardWithMembers>(`/cards/${cardId}`),
 				api<CommentWithUser[]>(`/cards/${cardId}/comments`),
 				api<Action[]>(`/cards/${cardId}/actions`),
 			]);
-			card = cardData;
-			comments = commentsData;
-			actions = actionsData;
-		} catch {
-			card = null;
-		} finally {
-			loading = false;
-		}
+			card = cd; comments = co; actions = ac;
+		} catch { card = null; } finally { loading = false; }
 	}
 
 	async function saveName() {
 		if (!card || editName.trim() === card.name) { editingName = false; return; }
 		saving = true;
 		try {
-			const updated = await api<CardWithMembers>(`/cards/${cardId}`, {
-				method: 'PUT', body: JSON.stringify({ name: editName.trim() }),
-			});
-			card.name = updated.name;
-			editingName = false;
 		} catch { /* ignore */ }
 		saving = false;
 	}
@@ -61,56 +46,41 @@
 		if (!card) { editingDesc = false; return; }
 		saving = true;
 		try {
-			const updated = await api<CardWithMembers>(`/cards/${cardId}`, {
-				method: 'PUT', body: JSON.stringify({ description: editDesc }),
-			});
-			card.description = updated.description;
-			editingDesc = false;
 		} catch { /* ignore */ }
 		saving = false;
 	}
 
 	async function toggleTask(task: Task, tl: TaskListWithTasks) {
 		try {
-			const updated = await api<Task>(`/cards/${cardId}/task-lists/${tl.id}/tasks/${task.id}`, {
-				method: 'PUT', body: JSON.stringify({ is_completed: !task.is_completed }),
-			});
-			task.is_completed = updated.is_completed;
 		} catch { /* ignore */ }
 	}
 
 	async function saveComment() {
 		if (!commentText.trim() || !cardId) return;
 		try {
-			const newComment = await api<CommentWithUser>('/comments', {
-				method: 'POST', body: JSON.stringify({ card_id: cardId, text: commentText.trim() }),
-			});
-			comments = [...comments, newComment];
-			commentText = '';
+		} catch { /* ignore */ }
+	}
+
+	async function removeDate() {
+		if (!card) return;
+		try {
+			const u = await api<CardWithMembers>(`/cards/${cardId}`, { method: 'PUT', body: JSON.stringify({ due_date: null }) });
+			card.due_date = u.due_date;
+		} catch { /* ignore */ }
+	}
+
+	async function toggleDueComplete() {
+		if (!card) return;
+		try {
+			const u = await api<CardWithMembers>(`/cards/${cardId}`, { method: 'PUT', body: JSON.stringify({ is_due_completed: !card.is_due_completed }) });
+			card.is_due_completed = u.is_due_completed;
 		} catch { /* ignore */ }
 	}
 
 	function startEditName() { if (card) { editName = card.name; editingName = true; } }
 	function startEditDesc() { if (card) { editDesc = card.description ?? ''; editingDesc = true; } }
 
-	async function archiveCard() {
-		if (!card) return;
-		try {
-			const u = await api<CardWithMembers>(`/cards/${cardId}`, { method: 'PUT', body: JSON.stringify({ is_closed: !card.is_closed }) });
-			card.is_closed = u.is_closed;
-		} catch { /* ignore */ }
-	}
-
-	async function deleteCard() {
-		if (!card || !confirm('Delete this card?')) return;
-		try {
-			await api(`/cards/${cardId}`, { method: 'DELETE' });
-			close();
-		} catch { /* ignore */ }
-	}
-
 	function close() {
-		card = null; comments = []; actions = []; editingName = false; editingDesc = false; commentText = '';
 		onclose?.();
 	}
 
@@ -152,7 +122,6 @@
 					{#if card.members.length > 0}<div class="members">{#each card.members as member}<div class="member-chip"><MemberAvatar name={member.name} size={24} /><span>{member.name}</span></div>{/each}</div>{:else}<p class="empty">No members.</p>{/if}
 				</section>
 
-				{#if card.due_date}<section><h3>Due Date</h3><p class:overdue={!card.is_due_completed && new Date(card.due_date) < new Date()} class:done={card.is_due_completed}>{formatDate(card.due_date)}{#if card.is_due_completed}<span class="badge-complete">Completed</span>{/if}</p></section>{/if}
 
 				<section>
 					<h3>Description</h3>
@@ -168,10 +137,6 @@
 				</section>
 
 				{#if actions.length > 0}<section><h3>Activity</h3><ul class="activity-list">{#each actions as act}<li>{act.type} — {formatDate(act.created_at)}</li>{/each}</ul></section>{/if}
-				<section>
-					<button class="danger-btn" onclick={archiveCard}>{card.is_closed ? 'Restore' : 'Archive'}</button>
-					<button class="danger-btn" onclick={deleteCard}>Delete</button>
-				</section>
 			{:else}
 				<div class="error">Could not load card.</div>
 			{/if}
@@ -197,6 +162,10 @@
 	.desc-btn { font-size: 14px; line-height: 1.5; color: #333; cursor: pointer; background: none; border: none; text-align: left; padding: 4px; border-radius: 4px; width: 100%; font-family: inherit; white-space: pre-wrap; }
 	.desc-btn:hover { background: #f0f0f0; }
 	.desc-textarea { width: 100%; padding: 8px; border: 2px solid var(--accent, #0079bf); border-radius: 4px; font-family: inherit; font-size: 14px; line-height: 1.5; resize: vertical; box-sizing: border-box; }
+	.date-input { padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; font-family: inherit; }
+	.due-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+	.action-btn { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer; color: #555; }
+	.action-btn:hover { background: #f0f0f0; }
 	.overdue { color: #d04444; font-weight: 600; }
 	.done { color: #1a8a1a; }
 	.badge-complete { background: #1a8a1a; color: white; padding: 1px 6px; border-radius: 4px; font-size: 11px; margin-left: 6px; }
@@ -208,8 +177,6 @@
 	.comment-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 	.comment-date { font-size: 11px; color: #999; margin-left: auto; }
 	.comment-text { margin: 0; line-height: 1.4; color: #333; }
-.danger-btn { background: none; border: 1px solid #d04444; color: #d04444; border-radius: 6px; padding: 8px 16px; font-size: 13px; cursor: pointer; font-weight: 600; margin-right: 8px; }
-.danger-btn:hover { background: #d04444; color: white; }
 	.comment-form { margin-top: 8px; }
 	.comment-input { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; box-sizing: border-box; font-family: inherit; outline: none; }
 	.comment-input:focus { border-color: var(--accent, #0079bf); }
