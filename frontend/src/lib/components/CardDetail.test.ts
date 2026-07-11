@@ -141,7 +141,6 @@ describe('CardDetail (comments)', () => {
 		globalThis.fetch = originalFetch;
 	});
 
-<<<<<<< HEAD
 	it('shows set date button when no due date', async () => {
 		globalThis.fetch = vi.fn().mockResolvedValue({
 			ok: true,
@@ -173,7 +172,6 @@ describe('CardDetail (comments)', () => {
 		btn.click();
 		await vi.advanceTimersByTimeAsync(0);
 		expect(screen.getByTitle('Date picker')).toBeTruthy();
-=======
 	it('shows comment input', async () => {
 		render(CardDetail, { cardId: 'c1', open: true });
 		await vi.advanceTimersByTimeAsync(0);
@@ -218,6 +216,5 @@ describe('CardDetail (archive)', () => {
 		render(CardDetail, { cardId: 'c1', open: true });
 		await vi.advanceTimersByTimeAsync(0);
 		expect(screen.getByText('Restore')).toBeTruthy();
->>>>>>> origin/main
 	});
 });
