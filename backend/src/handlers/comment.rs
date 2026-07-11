@@ -22,6 +22,19 @@ async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppErr
     uuid::Uuid::parse_str(&uid).map_err(|_| AppError::Internal("invalid user id".into()))
 }
 
+#[utoipa::path(
+    get,
+    path = "/comments/card/{card_id}",
+    tag = "comments",
+    params(
+        ("card_id" = String, Path, description = "Card ID")
+    ),
+    responses(
+        (status = 200, description = "List of comments", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    )
+)]
+ 
 async fn list_comments(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -33,6 +46,17 @@ async fn list_comments(
     Ok(Json(serde_json::json!(comments)))
 }
 
+#[utoipa::path(
+    post,
+    path = "/comments/",
+    tag = "comments",
+    request_body = CreateCommentRequest,
+    responses(
+        (status = 200, description = "Comment created", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    )
+)]
+ 
 async fn create_comment(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -51,6 +75,21 @@ async fn create_comment(
     Ok(Json(serde_json::json!(comment)))
 }
 
+#[utoipa::path(
+    put,
+    path = "/comments/{id}",
+    tag = "comments",
+    request_body = UpdateCommentRequest,
+    params(
+        ("id" = String, Path, description = "Comment ID")
+    ),
+    responses(
+        (status = 200, description = "Comment updated", body = serde_json::Value),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Comment not found")
+    )
+)]
+ 
 async fn update_comment(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -63,6 +102,19 @@ async fn update_comment(
     Ok(Json(serde_json::json!(comment)))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/comments/{id}",
+    tag = "comments",
+    params(
+        ("id" = String, Path, description = "Comment ID")
+    ),
+    responses(
+        (status = 200, description = "Comment deleted"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Comment not found")
+    )
+)]
 async fn delete_comment(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,

@@ -1,8 +1,9 @@
 use uuid::Uuid;
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
 pub struct Card {
     pub id: Uuid,
     pub board_id: Uuid,
@@ -18,14 +19,14 @@ pub struct Card {
     pub updated_at: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateCardRequest {
     pub list_id: Uuid,
     pub name: String,
     pub description: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateCardRequest {
     pub name: Option<String>,
     pub description: Option<String>,
@@ -36,7 +37,7 @@ pub struct UpdateCardRequest {
     pub list_id: Option<Uuid>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct CardWithMembers {
     pub id: Uuid,
     pub board_id: Uuid,
@@ -56,7 +57,7 @@ pub struct CardWithMembers {
     pub updated_at: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct MoveCardRequest {
     pub list_id: Uuid,
     pub position: f64,

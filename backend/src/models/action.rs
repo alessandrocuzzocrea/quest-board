@@ -1,8 +1,9 @@
 use uuid::Uuid;
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
 pub struct Action {
     pub id: Uuid,
     pub card_id: Uuid,

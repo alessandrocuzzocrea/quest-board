@@ -21,6 +21,19 @@ async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppErr
     uuid::Uuid::parse_str(&uid).map_err(|_| AppError::Internal("invalid user id".into()))
 }
 
+#[utoipa::path(
+    get,
+    path = "/attachments/card/{card_id}",
+    tag = "attachments",
+    params(
+        ("card_id" = String, Path, description = "Card ID")
+    ),
+    responses(
+        (status = 200, description = "List of attachments", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    )
+)]
+ 
 async fn list_attachments(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -32,6 +45,17 @@ async fn list_attachments(
     Ok(Json(serde_json::json!(attachments)))
 }
 
+#[utoipa::path(
+    post,
+    path = "/attachments/link",
+    tag = "attachments",
+    request_body(content = serde_json::Value, description = "Link attachment data"),
+    responses(
+        (status = 200, description = "Link attachment created", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    )
+)]
+ 
 async fn create_link_attachment(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -47,6 +71,19 @@ async fn create_link_attachment(
     Ok(Json(serde_json::json!(attachment)))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/attachments/{id}",
+    tag = "attachments",
+    params(
+        ("id" = String, Path, description = "Attachment ID")
+    ),
+    responses(
+        (status = 200, description = "Attachment deleted"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Attachment not found")
+    )
+)]
 async fn delete_attachment(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,

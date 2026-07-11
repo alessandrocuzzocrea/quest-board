@@ -5,8 +5,11 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "npm run gen:types && vite build",
+    "preview": "vite preview",
+    "gen:spec": "cargo run --manifest-path ../backend/Cargo.toml --bin gen_openapi",
+    "gen:types": "npm run gen:spec && npx openapi-typescript openapi.json -o src/lib/types/api.ts",
+    "dev:types": "npm run gen:types"
   },
   "keywords": [],
   "author": "",
@@ -16,7 +19,12 @@
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.69.2",
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
+    "openapi-typescript": "^7.13.0",
     "svelte": "^5.56.4",
+    "svelte-check": "^4.7.2",
     "vite": "^8.1.4"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0"
   }
 }

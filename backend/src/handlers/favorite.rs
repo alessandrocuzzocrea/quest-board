@@ -21,6 +21,16 @@ async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppErr
     uuid::Uuid::parse_str(&uid).map_err(|_| AppError::Internal("invalid user id".into()))
 }
 
+#[utoipa::path(
+    get,
+    path = "/favorites/",
+    tag = "favorites",
+    responses(
+        (status = 200, description = "List of favorites", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    )
+)]
+ 
 async fn list_favorites(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -30,6 +40,17 @@ async fn list_favorites(
     Ok(Json(result))
 }
 
+#[utoipa::path(
+    post,
+    path = "/favorites/",
+    tag = "favorites",
+    request_body = CreateFavoriteRequest,
+    responses(
+        (status = 200, description = "Favorite created"),
+        (status = 401, description = "Unauthorized")
+    )
+)]
+ 
 async fn create_favorite(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -40,6 +61,19 @@ async fn create_favorite(
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/favorites/{id}",
+    tag = "favorites",
+    params(
+        ("id" = String, Path, description = "Favorite ID")
+    ),
+    responses(
+        (status = 200, description = "Favorite deleted"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Favorite not found")
+    )
+)]
 async fn delete_favorite(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,

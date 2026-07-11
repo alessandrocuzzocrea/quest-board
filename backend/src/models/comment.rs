@@ -1,8 +1,9 @@
 use uuid::Uuid;
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
 pub struct Comment {
     pub id: Uuid,
     pub card_id: Uuid,
@@ -12,18 +13,18 @@ pub struct Comment {
     pub updated_at: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateCommentRequest {
     pub card_id: Uuid,
     pub text: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateCommentRequest {
     pub text: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct CommentWithUser {
     pub id: Uuid,
     pub card_id: Uuid,

@@ -22,6 +22,16 @@ async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppErr
     uuid::Uuid::parse_str(&uid).map_err(|_| AppError::Internal("invalid user id".into()))
 }
 
+#[utoipa::path(
+    get,
+    path = "/boards/",
+    tag = "boards",
+    responses(
+        (status = 200, description = "List of boards", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    )
+)]
+ 
 async fn list_boards(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -31,6 +41,17 @@ async fn list_boards(
     Ok(Json(serde_json::json!(boards)))
 }
 
+#[utoipa::path(
+    post,
+    path = "/boards/",
+    tag = "boards",
+    request_body = CreateBoardRequest,
+    responses(
+        (status = 200, description = "Board created", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    )
+)]
+ 
 async fn create_board(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -45,6 +66,20 @@ async fn create_board(
     Ok(Json(serde_json::json!(board)))
 }
 
+#[utoipa::path(
+    get,
+    path = "/boards/{id}",
+    tag = "boards",
+    params(
+        ("id" = String, Path, description = "Board ID")
+    ),
+    responses(
+        (status = 200, description = "Board with lists and members", body = serde_json::Value),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Board not found")
+    )
+)]
+ 
 async fn get_board(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -62,6 +97,21 @@ async fn get_board(
     })))
 }
 
+#[utoipa::path(
+    put,
+    path = "/boards/{id}",
+    tag = "boards",
+    request_body = UpdateBoardRequest,
+    params(
+        ("id" = String, Path, description = "Board ID")
+    ),
+    responses(
+        (status = 200, description = "Board updated", body = serde_json::Value),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Board not found")
+    )
+)]
+ 
 async fn update_board(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -85,6 +135,20 @@ async fn update_board(
     Ok(Json(serde_json::json!(board)))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/boards/{id}",
+    tag = "boards",
+    params(
+        ("id" = String, Path, description = "Board ID")
+    ),
+    responses(
+        (status = 200, description = "Board deleted"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Board not found")
+    )
+)]
+ 
 async fn delete_board(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -96,6 +160,19 @@ async fn delete_board(
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
+#[utoipa::path(
+    get,
+    path = "/boards/by-slug/{slug}",
+    tag = "boards",
+    params(
+        ("slug" = String, Path, description = "Board slug")
+    ),
+    responses(
+        (status = 200, description = "Board with lists and members", body = serde_json::Value),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Board not found")
+    )
+)]
 async fn get_board_by_slug(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,

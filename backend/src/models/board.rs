@@ -1,8 +1,9 @@
 use uuid::Uuid;
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
 pub struct Board {
     pub id: Uuid,
     pub name: String,
@@ -13,12 +14,12 @@ pub struct Board {
     pub updated_at: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateBoardRequest {
     pub name: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateBoardRequest {
     pub name: Option<String>,
     pub position: Option<f64>,

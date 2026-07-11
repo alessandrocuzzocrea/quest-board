@@ -1,8 +1,9 @@
 use uuid::Uuid;
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
 pub struct TaskList {
     pub id: Uuid,
     pub card_id: Uuid,
@@ -13,7 +14,7 @@ pub struct TaskList {
     pub updated_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
 pub struct Task {
     pub id: Uuid,
     pub task_list_id: Uuid,
@@ -25,7 +26,7 @@ pub struct Task {
     pub updated_at: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct TaskListWithTasks {
     pub id: Uuid,
     pub card_id: Uuid,
@@ -37,18 +38,18 @@ pub struct TaskListWithTasks {
     pub updated_at: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateTaskListRequest {
     pub card_id: Uuid,
     pub name: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateTaskRequest {
     pub name: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateTaskRequest {
     pub name: Option<String>,
     pub is_completed: Option<bool>,

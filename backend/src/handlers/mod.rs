@@ -20,6 +20,14 @@ pub fn user_router() -> Router<Arc<AppState>> {
     Router::new().route("/", get(list_users))
 }
 
+#[utoipa::path(
+    get,
+    path = "/users/",
+    tag = "users",
+    responses(
+        (status = 200, description = "List of users", body = serde_json::Value)
+    )
+)]
 async fn list_users(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<serde_json::Value>, crate::error::AppError> {

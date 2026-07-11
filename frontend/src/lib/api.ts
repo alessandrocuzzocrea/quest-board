@@ -1,19 +1,21 @@
-const BASE = '/api/v1';
+import createClient from 'openapi-fetch';
+import type { paths, components } from '$lib/types/api';
 
-export interface User {
-	id: string;
-	email: string;
-	name: string;
-	role: string;
-}
+export const client = createClient<paths>({
+	baseUrl: '/api/v1',
+	credentials: 'include',
+	headers: { 'content-type': 'application/json' },
+});
 
-export async function api(path: string, options: RequestInit = {}) {
-	const res = await fetch(`${BASE}${path}`, {
+export type User = components['schemas']['UserResponse'];
+
+export async function api<T = unknown>(path: string, options: RequestInit = {}) {
+	const res = await fetch(`/api/v1${path}`, {
 		credentials: 'include',
 		headers: { 'content-type': 'application/json', ...options.headers },
 		...options,
 	});
 	const data = await res.json();
 	if (!res.ok) throw new Error(data.error ?? 'request failed');
-	return data;
+	return data as T;
 }
