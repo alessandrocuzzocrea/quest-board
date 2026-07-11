@@ -48,26 +48,6 @@
 			error = e instanceof Error ? e.message : 'Failed to move card';
 		}
 	}
-	async function deleteCard(cardId: string) {
-		try {
-			await api(`/cards/${cardId}`, { method: 'DELETE' });
-			for (const col of columns) {
-				col.cards = col.cards.filter(c => c.id !== cardId);
-			}
-			columns = columns;
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to delete card';
-		}
-	}
-
-	async function deleteList(listId: string) {
-		try {
-			await api(`/lists/${listId}`, { method: 'DELETE' });
-			columns = columns.filter(c => c.id !== listId);
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to delete list';
-		}
-	}
 
 	async function addCard(listId: string, name: string) {
 		try {
@@ -101,7 +81,42 @@
 		}
 	}
 
+	async function deleteCard(cardId: string) {
+		try {
+			await api(`/cards/${cardId}`, { method: 'DELETE' });
+			for (const col of columns) {
+				col.cards = col.cards.filter(c => c.id !== cardId);
+			}
+			columns = columns;
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to delete card';
+		}
+	}
+
+	async function deleteList(listId: string) {
+		try {
+			await api(`/lists/${listId}`, { method: 'DELETE' });
+			columns = columns.filter(c => c.id !== listId);
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to delete list';
+		}
+	}
+
 	$effect(() => { checkSession(); });
+</script>
+
+<svelte:head>
+	<title>{initial.board.name} — Quest Board</title>
+</svelte:head>
+
+<div class="board-header">
+	<h1 class="board-title">{initial.board.name}</h1>
+	<div class="board-actions">
+		{#if user}
+			<span class="user-badge">{user.name}</span>
+		{/if}
+	</div>
+</div>
 
 {#if error}
 	<div class="error-bar">{error}</div>
@@ -118,6 +133,8 @@
 			onDropCard={moveCard}
 			onCardClick={(id) => selectedCardId = id}
 			onAddCard={addCard}
+			onDeleteCard={deleteCard}
+			onDeleteList={deleteList}
 		/>
 	{/each}
 
