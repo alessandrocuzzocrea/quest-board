@@ -9,6 +9,7 @@
 		cardCount = 0,
 		color = null as string | null,
 		onDropCard = undefined as ((cardId: string, sourceListId: string, targetListId: string) => void) | undefined,
+		onCardClick = undefined as ((cardId: string) => void) | undefined,
 	}: {
 		title: string;
 		cards: CardWithMembers[];
@@ -16,6 +17,7 @@
 		cardCount?: number;
 		color?: string | null;
 		onDropCard?: (cardId: string, sourceListId: string, targetListId: string) => void;
+		onCardClick?: (cardId: string) => void;
 	} = $props();
 
 	let dropActive = $state(false);
@@ -78,7 +80,7 @@
 				labels={card.labels}
 				members={card.members}
 				dueDate={card.due_date}
-				isDueCompleted={card.is_due_completed}
+				onclick={() => onCardClick?.(card.id)}
 				isClosed={card.is_closed}
 				commentsCount={card.comments_count}
 				checklists={card.checklists}
