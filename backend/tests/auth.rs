@@ -12,7 +12,7 @@ async fn setup() -> (axum::Router, sqlx::PgPool) {
 
     // Clean slate: drop all tables, re-run migrations
     sqlx::query(
-        "DROP TABLE IF EXISTS favorites, notifications, actions, tasks, task_lists, \
+        "DROP TABLE IF EXISTS sessions, favorites, notifications, actions, tasks, task_lists, \
          attachments, comments, card_labels, labels, card_members, cards, lists, \
          board_members, boards, users CASCADE",
     )
@@ -25,7 +25,7 @@ async fn setup() -> (axum::Router, sqlx::PgPool) {
         .expect("failed to run migrations");
 
     let state = Arc::new(AppState { db: pool.clone() });
-    let app = quest_board::build_app(state);
+    let app = quest_board::build_app(pool.clone(), state).await;
 
     (app, pool)
 }

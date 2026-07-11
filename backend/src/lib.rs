@@ -3,18 +3,19 @@ pub mod error;
 pub mod handlers;
 pub mod models;
 pub mod repository;
+pub mod session;
 
 use std::sync::Arc;
 use tower_http::services::fs::ServeDir;
 use tower_sessions::cookie::SameSite;
-use tower_sessions::MemoryStore;
+use session::PgSessionStore;
 
 pub struct AppState {
     pub db: sqlx::PgPool,
 }
 
-pub fn build_app(state: Arc<AppState>) -> axum::Router {
-    let session_store = MemoryStore::default();
+pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router {
+    let session_store = PgSessionStore::new(pool);
     let session_layer = tower_sessions::SessionManagerLayer::new(session_store)
         .with_secure(false)
         .with_same_site(SameSite::Lax);
