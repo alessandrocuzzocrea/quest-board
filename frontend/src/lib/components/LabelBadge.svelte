@@ -1,5 +1,5 @@
 <script lang="ts">
-	let { name = '', color = '#0079bf' }: { name: string; color: string } = $props();
+	let { name = '', color = '#0079bf' }: { name: string; color?: string } = $props();
 </script>
 
 <span class="badge" style="background: {color}">

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import KanbanColumn from '$lib/components/KanbanColumn.svelte';
+	import CardDetail from '$lib/components/CardDetail.svelte';
 	import { api, type User } from '$lib/api';
 	import type { Board, ListWithCards, CardWithMembers } from '$lib/types/bindings';
 
@@ -7,6 +8,7 @@
 
 	const boardData = JSON.parse(JSON.stringify(initial.lists)) as ListWithCards[];
 	let columns = $state<ListWithCards[]>(boardData);
+	let selectedCardId = $state<string | null>(null);
 	let user = $state<User | null>(null);
 	let error = $state('');
 
@@ -39,7 +41,6 @@
 				body: JSON.stringify({ list_id: targetListId, position: card.position }),
 			});
 		} catch (e) {
-			// revert on failure
 			const reverted = tgt.cards.pop();
 			if (reverted) src.cards.splice(idx, 0, reverted);
 			columns = columns;
@@ -76,9 +77,16 @@
 			color={col.color}
 			cardCount={col.cards.length}
 			onDropCard={moveCard}
+			onCardClick={(id) => selectedCardId = id}
 		/>
 	{/each}
 </div>
+
+<CardDetail
+	cardId={selectedCardId ?? ''}
+	open={!!selectedCardId}
+	onclose={() => selectedCardId = null}
+/>
 
 <style>
 	.board-header {
