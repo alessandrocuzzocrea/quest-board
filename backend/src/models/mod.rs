@@ -9,3 +9,4 @@ pub mod action;
 pub mod notification;
 pub mod checklist;
 pub mod favorite;
+pub mod api_key;

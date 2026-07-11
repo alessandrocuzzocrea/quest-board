@@ -9,3 +9,4 @@ pub mod favorite_repo;
 pub mod action_repo;
 pub mod checklist_repo;
 pub mod notification_repo;
+pub mod api_key_repo;

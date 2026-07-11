@@ -1,4 +1,5 @@
 pub mod db;
+pub mod auth;
 pub mod error;
 pub mod handlers;
 pub mod models;
@@ -32,6 +33,7 @@ pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router
         .nest("/attachments", handlers::attachment::router())
         .nest("/favorites", handlers::favorite::router())
         .nest("/search", handlers::search::router())
+        .nest("/api-keys", handlers::api_key::router())
         .nest("/users", handlers::user_router())
         .layer(tower_http::cors::CorsLayer::permissive())
         .with_state(state);
