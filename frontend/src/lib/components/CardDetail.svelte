@@ -27,13 +27,13 @@
 		if (!cardId || !open) return;
 		loading = true;
 		try {
-			const [cd, co, ac] = await Promise.all([
-				api<CardWithMembers>(`/cards/${cardId}`),
-				api<CommentWithUser[]>(`/cards/${cardId}/comments`),
-				api<Action[]>(`/cards/${cardId}/actions`),
-			]);
-			card = cd; comments = co; actions = ac;
-			boardLabels = await api<Label[]>(`/labels/board/${cd.board_id}`);
+		const [cd, co, ac] = await Promise.all([
+			api<{ card: CardWithMembers }>(`/cards/${cardId}`),
+			api<CommentWithUser[]>(`/cards/${cardId}/comments`),
+			api<Action[]>(`/cards/${cardId}/actions`),
+		]);
+		card = cd.card; comments = co; actions = ac;
+		boardLabels = await api<Label[]>(`/labels/board/${cd.card.board_id}`);
 		} catch { card = null; } finally { loading = false; }
 	}
 
