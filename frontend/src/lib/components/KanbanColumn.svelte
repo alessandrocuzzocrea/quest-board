@@ -62,7 +62,7 @@
 		try {
 			const { cardId, sourceListId } = JSON.parse(raw);
 
-			const cardList = e.currentTarget?.querySelector('.card-list');
+			const cardList = (e.currentTarget as HTMLElement)?.querySelector('.card-list');
 			const cardElements = cardList?.querySelectorAll('.card-wrapper');
 			let targetIndex: number | undefined;
 			if (cardElements) {
