@@ -14,6 +14,8 @@ let chatOpen = $state(false);
 	let user = $state<User | null>(null);
 	let error = $state('');
 	let newListName = $state('');
+	let undoAction = $state<{type: string; cardId: string; sourceListId: string; targetListId: string; position: number} | null>(null);
+	let undoTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	async function checkSession() {
 		try {
@@ -67,9 +69,51 @@ let chatOpen = $state(false);
 				method: 'PUT',
 				body: JSON.stringify({ list_id: targetListId, position: card.position }),
 			});
+			if (targetListId !== sourceListId) {
+				showUndo({ type: 'moveCard', cardId, sourceListId, targetListId, position: card.position });
+			}
 		} catch (e) {
 			// Revert is complex with reordering — just log the error
 			error = e instanceof Error ? e.message : 'Failed to move card';
+		}
+	}
+	
+	function showUndo(action: { type: string; cardId: string; sourceListId: string; targetListId: string; position: number }) {
+		if (undoTimeout) clearTimeout(undoTimeout);
+		undoAction = action;
+		undoTimeout = setTimeout(() => {
+			undoAction = null;
+			undoTimeout = null;
+		}, 5000);
+	}
+	
+	async function performUndo() {
+		if (!undoAction) return;
+		const { cardId, sourceListId, targetListId } = undoAction;
+		undoAction = null;
+		if (undoTimeout) { clearTimeout(undoTimeout); undoTimeout = null; }
+	
+		// Reverse: move card back from targetListId to sourceListId
+		const src = columns.find(c => c.id === targetListId);
+		const tgt = columns.find(c => c.id === sourceListId);
+		if (!src || !tgt) return;
+	
+		const idx = src.cards.findIndex(c => c.id === cardId);
+		if (idx === -1) return;
+	
+		const [card] = src.cards.splice(idx, 1);
+		card.list_id = sourceListId;
+		card.position = tgt.cards.length > 0 ? tgt.cards[tgt.cards.length - 1].position + 65536 : 65536;
+		tgt.cards.push(card);
+		columns = columns;
+	
+		try {
+			await api(`/cards/${cardId}/move`, {
+				method: 'PUT',
+				body: JSON.stringify({ list_id: sourceListId, position: card.position }),
+			});
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to undo move';
 		}
 	}
 
@@ -180,11 +224,20 @@ let chatOpen = $state(false);
 	onclose={() => selectedCardId = null}
 />
 
+<<<<<<< HEAD
 <ChatPanel
 	boardId={initial.board.id}
 	open={chatOpen}
 	onclose={() => chatOpen = false}
 />
+=======
+{#if undoAction}
+	<div class="undo-toast">
+		<span>Card moved.</span>
+		<button onclick={performUndo} class="undo-button">Undo</button>
+	</div>
+{/if}
+>>>>>>> main
 
 <style>
 	.board-header {
@@ -260,5 +313,40 @@ let chatOpen = $state(false);
 	}
 	.add-list-input::placeholder {
 		color: rgba(255,255,255,0.7);
+	}
+	.undo-toast {
+		position: fixed;
+		bottom: 24px;
+		left: 50%;
+		transform: translateX(-50%);
+		background: #323232;
+		color: #fff;
+		padding: 12px 20px;
+		border-radius: 8px;
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		font-size: 14px;
+		box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+		z-index: 1000;
+		animation: undofadein 0.2s ease-out;
+	}
+	.undo-button {
+		background: transparent;
+		border: 1px solid rgba(255,255,255,0.3);
+		color: #fff;
+		padding: 4px 12px;
+		border-radius: 4px;
+		cursor: pointer;
+		font-size: 13px;
+		font-weight: 600;
+	}
+	.undo-button:hover {
+		background: rgba(255,255,255,0.1);
+		border-color: rgba(255,255,255,0.6);
+	}
+	@keyframes undofadein {
+		from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+		to { opacity: 1; transform: translateX(-50%) translateY(0); }
 	}
 </style>
