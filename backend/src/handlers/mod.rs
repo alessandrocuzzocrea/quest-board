@@ -1,6 +1,5 @@
 pub mod health;
 pub mod auth;
-pub mod health;
 pub mod api_key;
 pub mod attachment;
 pub mod board;

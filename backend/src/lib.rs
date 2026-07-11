@@ -37,7 +37,6 @@ pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router
         .nest("/search", handlers::search::router())
         .nest("/health", handlers::health::router())
         .nest("/api-keys", handlers::api_key::router())
-        .nest("/health", handlers::health::router())
         .nest("/ai", handlers::ai::router())
         .nest("/users", handlers::user_router())
         .layer(tower_http::cors::CorsLayer::permissive())
