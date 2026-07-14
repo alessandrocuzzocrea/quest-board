@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tower::ServiceExt;
 
 async fn setup() -> axum::Router {
-    dotenvy::from_filename("../backend/.env.test").ok();
+    dotenvy::from_filename(".env.test").ok();
     let db = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:quest@localhost:5432/quest_test".into());
     let pool = sqlx::PgPool::connect(&db).await.unwrap();

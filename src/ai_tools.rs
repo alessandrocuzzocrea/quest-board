@@ -155,7 +155,7 @@ mod tests {
     use sqlx::Row;
 
     async fn setup_pool() -> (sqlx::PgPool, Uuid) {
-        dotenvy::from_filename("../backend/.env.test").ok();
+        dotenvy::from_filename(".env.test").ok();
         let db = std::env::var("DATABASE_URL").unwrap_or_else(|_| "postgres://postgres:quest@localhost:5432/quest_test".into());
         let pool = sqlx::PgPool::connect(&db).await.unwrap();
         sqlx::query("DROP TABLE IF EXISTS api_keys,sessions,favorites,notifications,actions,tasks,task_lists,attachments,comments,card_labels,labels,card_members,cards,lists,board_members,boards,users CASCADE")
