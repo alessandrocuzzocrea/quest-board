@@ -128,3 +128,47 @@ pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router
         .with_state(app_state)
 }
 
+
+// ── CLI integration ─────────────────────────────────────────────
+pub mod cli {
+    /// Returns a hello message showing the backend URL the CLI connects to.
+    pub fn hello_msg(backend_url: &str) -> String {
+        format!("Hello from quest-board CLI! Backend: {backend_url}")
+    }
+
+    /// Greet and print backend health status (or error).
+    pub async fn run(backend_url: &str) -> Result<String, String> {
+        let msg = hello_msg(backend_url);
+        match reqwest::get(&format!("{backend_url}/health")).await {
+            Ok(resp) => {
+                let status = resp.status();
+                let text = resp.text().await.unwrap_or_default();
+                Ok(format!("{msg}\nBackend status: {status}\n{text}"))
+            }
+            Err(e) => Ok(format!("{msg}\nCould not reach backend: {e}")),
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn test_hello_msg_format() {
+            let msg = hello_msg("http://localhost:3000");
+            assert!(msg.contains("Hello from quest-board CLI!"));
+            assert!(msg.contains("http://localhost:3000"));
+            assert_eq!(msg, "Hello from quest-board CLI! Backend: http://localhost:3000");
+        }
+
+        #[tokio::test]
+        async fn test_run_returns_greeting() {
+            // Should not panic even with unreachable backend
+            let result = run("http://localhost:1").await;
+            assert!(result.is_ok());
+            let output = result.unwrap();
+            assert!(output.contains("Hello from quest-board CLI!"));
+            assert!(output.contains("Could not reach backend"));
+        }
+    }
+}
