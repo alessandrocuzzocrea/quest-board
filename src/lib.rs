@@ -117,8 +117,6 @@ pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router
         .layer(tower_http::cors::CorsLayer::permissive())
         .with_state(state);
 
-    let static_files = ServeDir::new("static");
-
     axum::Router::new()
         .route("/login", get(handlers::auth::htmx_login_page).post(handlers::auth::htmx_login))
         .route("/", get(root_handler))
@@ -126,10 +124,26 @@ pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router
         .route("/board/{slug}/{*name}", get(page_board))
         .route("/settings", get(page_settings))
         .nest("/api/v1", api)
-        .fallback_service(static_files)
+        .fallback_service(tower::service_fn(static_or_redirect))
         .layer(middleware::from_fn(require_auth_for_html))
         .layer(session_layer)
         .with_state(app_state)
+}
+
+async fn static_or_redirect(
+    req: axum::http::Request<axum::body::Body>,
+) -> Result<axum::response::Response, std::convert::Infallible> {
+    let mut serve_dir = ServeDir::new("static");
+    match tower::ServiceExt::oneshot(&mut serve_dir, req).await {
+        Ok(resp) => {
+            if resp.status() == axum::http::StatusCode::NOT_FOUND {
+                Ok(Redirect::to("/").into_response())
+            } else {
+                Ok(resp.map(axum::body::Body::new))
+            }
+        }
+        Err(_) => Ok(Redirect::to("/").into_response()),
+    }
 }
 
 
