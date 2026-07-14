@@ -277,3 +277,45 @@ async fn test_boards_clean_url_serves_when_authed() {
         "authenticated user should be able to access /boards"
     );
 }
+
+// ── Root path / redirects based on auth status ──────────────────────
+
+#[tokio::test]
+async fn test_root_redirects_to_login_when_unauthed() {
+    let ta = setup().await;
+
+    let req = axum::http::Request::builder()
+        .method("GET")
+        .uri("/")
+        .body(axum::body::Body::empty())
+        .unwrap();
+
+    let resp = ta.app.oneshot(req).await.unwrap();
+
+    assert_eq!(resp.status(), 303);
+    assert_eq!(
+        resp.headers().get("location").and_then(|v| v.to_str().ok()),
+        Some("/login")
+    );
+}
+
+#[tokio::test]
+async fn test_root_redirects_to_boards_when_authed() {
+    let ta = setup().await;
+    let cookie = register(&ta.app).await;
+
+    let req = axum::http::Request::builder()
+        .method("GET")
+        .uri("/")
+        .header("cookie", &cookie)
+        .body(axum::body::Body::empty())
+        .unwrap();
+
+    let resp = ta.app.oneshot(req).await.unwrap();
+
+    assert_eq!(resp.status(), 303);
+    assert_eq!(
+        resp.headers().get("location").and_then(|v| v.to_str().ok()),
+        Some("/boards")
+    );
+}
