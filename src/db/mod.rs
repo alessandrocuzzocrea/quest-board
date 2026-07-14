@@ -13,6 +13,7 @@ pub async fn run_migrations(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
         include_str!("../../migrations/002_native_uuids.sql"),
         include_str!("../../migrations/003_api_keys.sql"),
         include_str!("../../migrations/004_email_to_username.sql"),
+        include_str!("../../migrations/005_card_start_date.sql"),
     ] {
         for statement in sql.split(';') {
             let stmt = statement.trim();
