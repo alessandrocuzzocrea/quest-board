@@ -297,7 +297,7 @@ function renderKanban() {
            ondragover="onDragOver(event)" ondrop="onDrop(event)" ondragleave="onDragLeave(event)">
         ${(list.cards || []).map(c => `
           <div class="kanban-card" draggable="true"
-               data-card-id="${c.id}" data-list-id="${list.id}"
+               data-card-id="${c.id}" data-list-id="${list.id}" data-position="${c.position}"
                ondragstart="onDragStart(event)" ondragend="onDragEnd(event)"
                onclick="openCard('${c.id}')">
             <h4>${esc(c.name)}</h4>
@@ -353,8 +353,35 @@ async function onDrop(e) {
   e.currentTarget.classList.remove('drag-over');
   const targetListId = e.currentTarget.dataset.listId;
   if (!dragCard || dragCard.listId === targetListId) return;
+
+  // Calculate position based on drop location
+  const cardEls = e.currentTarget.querySelectorAll('.kanban-card');
+  let position;
+  if (cardEls.length === 0) {
+    position = 1000;
+  } else {
+    const dropY = e.clientY;
+    let beforeCard = null;
+    for (const card of cardEls) {
+      const rect = card.getBoundingClientRect();
+      if (dropY < rect.top + rect.height / 2) {
+        beforeCard = card;
+        break;
+      }
+    }
+    if (beforeCard) {
+      const prevCard = beforeCard.previousElementSibling;
+      const prevPos = prevCard ? parseFloat(prevCard.dataset.position) : 0;
+      const nextPos = parseFloat(beforeCard.dataset.position);
+      position = (prevPos + nextPos) / 2;
+    } else {
+      const lastCard = cardEls[cardEls.length - 1];
+      position = parseFloat(lastCard.dataset.position) + 1000;
+    }
+  }
+
   try {
-    await API.moveCard(dragCard.id, { list_id: targetListId });
+    await API.moveCard(dragCard.id, { list_id: targetListId, position });
     await loadBoard();
   } catch (err) { showAlert(err.message); }
 }
