@@ -11,8 +11,8 @@ const API = (() => {
     if (body !== undefined) opts.body = JSON.stringify(body);
     const res = await fetch(`${BASE}${path}`, opts);
     if (res.status === 401) {
-      if (!window.location.pathname.includes('index.html')) {
-        window.location.href = '/index.html';
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
       }
       throw new Error('Unauthorized');
     }
@@ -56,8 +56,14 @@ const API = (() => {
     addCardLabel:  (id, data)  => request('POST', `/cards/${id}/labels`, data),
     removeCardLabel: (id, data) => request('DELETE', `/cards/${id}/labels`, data),
     addTaskList:   (id, data)  => request('POST', `/cards/${id}/task-lists`, data),
-
-    // Comments
+    updateTaskList: (id, tlId, data) => request('PUT', `/cards/${id}/task-lists/${tlId}`, data),
+    deleteTaskList: (id, tlId) => request('DELETE', `/cards/${id}/task-lists/${tlId}`),
+    createTask:    (id, tlId, data) => request('POST', `/cards/${id}/task-lists/${tlId}/tasks`, data),
+    updateTask:    (id, tlId, taskId, data) => request('PUT', `/cards/${id}/task-lists/${tlId}/tasks/${taskId}`, data),
+    deleteTask:    (id, tlId, taskId) => request('DELETE', `/cards/${id}/task-lists/${tlId}/tasks/${taskId}`),
+    listComments:  (id)         => request('GET', `/cards/${id}/comments`),
+    listActions:   (id)         => request('GET', `/cards/${id}/actions`),
+    listBoardLabels: (boardId)  => request('GET', `/labels/board/${boardId}`),
     createComment: (data) => request('POST', '/comments', data),
 
     // Labels
@@ -112,21 +118,21 @@ async function checkAuth() {
 
 async function requireAuth() {
   const user = await checkAuth();
-  if (!user) { window.location.href = '/index.html'; return null; }
+  if (!user) { window.location.href = '/login'; return null; }
   return user;
 }
 
 function navBar(currentPage) {
   const pages = [
-    { href: '/boards.html', label: 'Boards' },
-    { href: '/settings.html', label: 'Settings' },
+    { href: '/boards', label: 'Boards' },
+    { href: '/settings', label: 'Settings' },
   ];
   const nav = el('div', { className: 'topbar' },
-    el('a', { href: '/boards.html', className: 'logo' }, 'quest-board'),
+    el('a', { href: '/boards', className: 'logo' }, 'quest-board'),
     el('nav', {},
       ...pages.map(p => el('a', { href: p.href, style: p.href === currentPage ? 'color: var(--accent)' : '' }, p.label)),
       el('span', { className: 'user-name', id: 'user-name' }),
-      el('button', { className: 'btn btn-sm', onClick: async () => { await API.logout(); window.location.href = '/index.html'; } }, 'Logout'),
+      el('button', { className: 'btn btn-sm', onClick: async () => { await API.logout(); window.location.href = '/login'; } }, 'Logout'),
     ),
   );
   return nav;

@@ -17,7 +17,7 @@
         <span class="slug" id="board-slug"></span>
       </div>
       <div class="flex gap-8">
-        <button class="btn" onclick="window.location.href='/boards.html'">&larr; Boards</button>
+        <button class="btn" onclick="window.location.href='/boards'">&larr; Boards</button>
         <button class="btn btn-danger" id="delete-board-btn" onclick="deleteBoard()">Delete Board</button>
       </div>
     </div>
@@ -26,17 +26,43 @@
   <div class="kanban" id="kanban"></div>
 </div>
 
-<!-- Card detail panel -->
-<div class="overlay" id="panel-overlay" onclick="closePanel()"></div>
-<div class="panel" id="card-panel">
-  <div class="panel-header">
-    <div>
-      <h2 id="panel-title">Card</h2>
-      <span class="text-sm" id="panel-list-name"></span>
+<!-- Card detail modal -->
+<div class="modal-overlay" id="card-modal" onclick="if(event.target===this)closePanel()">
+  <div class="modal modal-card-v2">
+    <div class="card-modal-header">
+      <div>
+        <h2 id="panel-title" style="font-size:18px;margin:0 0 2px">Card</h2>
+        <span class="card-list-label" id="panel-list-name"></span>
+      </div>
+      <button class="btn btn-sm btn-icon" onclick="closePanel()">&times;</button>
     </div>
-    <button class="btn btn-sm btn-icon" onclick="closePanel()">&times;</button>
+    <div class="card-modal-body">
+      <div class="card-modal-main" id="modal-main">
+      </div>
+      <div class="card-modal-sidebar">
+        <div class="panel-section">
+          <h3>List Status</h3>
+          <span class="list-status-badge" id="list-status-badge">doing</span>
+        </div>
+        <div class="panel-section">
+          <h3>Add to Card</h3>
+          <div class="sidebar-btn-group">
+            <button class="sidebar-btn" onclick="showLabelsPicker()"><span class="sidebar-btn-icon">🏷</span> Labels</button>
+            <button class="sidebar-btn" onclick="setDueDate()"><span class="sidebar-btn-icon">📅</span> Due Date</button>
+            <button class="sidebar-btn" onclick="setStartDate()"><span class="sidebar-btn-icon">📅</span> Start Date</button>
+            <button class="sidebar-btn" onclick="addTaskListPrompt()"><span class="sidebar-btn-icon">☑</span> Task List</button>
+          </div>
+        </div>
+        <div class="panel-section">
+          <h3>Actions</h3>
+          <div class="sidebar-btn-group">
+            <button class="sidebar-btn" id="archive-btn" onclick="archiveCard()"><span class="sidebar-btn-icon">📦</span> Archive</button>
+            <button class="sidebar-btn" onclick="deleteCardFromPanel()"><span class="sidebar-btn-icon">🗑</span> Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
-  <div class="panel-body" id="panel-body"></div>
 </div>
 
 <!-- Add card modal -->
@@ -85,7 +111,8 @@ async function init() {
   if (!user) return;
   const params = new URLSearchParams(location.search);
   boardId = params.get('id');
-  if (!boardId) { window.location.href = '/boards.html'; return; }
+  if (!boardId) { window.location.href = '/boards'; return; }
+  document.getElementById('nav').appendChild(navBar('board'));
   $('#user-name').textContent = user.name;
   await loadBoard();
 }
@@ -181,102 +208,323 @@ async function onDrop(e) {
   } catch (err) { showAlert(err.message); }
 }
 
-// Card detail panel
+// ---- Card detail modal ----
+let currentCard = null;
+
 async function openCard(cardId) {
   try {
-    const data = await API.getCard(cardId);
-    renderPanel(data);
-    $('#card-panel').classList.add('open');
-    $('#panel-overlay').classList.add('open');
+    currentCard = await API.getCard(cardId);
+    renderCardModal(currentCard);
+    openModal('card-modal');
   } catch (err) { showAlert(err.message); }
 }
 
 function closePanel() {
-  $('#card-panel').classList.remove('open');
-  $('#panel-overlay').classList.remove('open');
+  closeModal('card-modal');
+  currentCard = null;
 }
 
-function renderPanel(card) {
+function renderCardModal(card) {
+  // Header
   $('#panel-title').textContent = card.name;
   const listName = lists.find(l => l.id === card.list_id)?.name || '';
   $('#panel-list-name').textContent = listName;
+  $('#list-status-badge').textContent = listName;
 
-  const body = $('#panel-body');
-  body.innerHTML = `
-    <div class="panel-section">
-      <h3>Description</h3>
-      <p>${card.description ? esc(card.description) : '<span class="text-sm">No description</span>'}</p>
-    </div>
-    ${card.labels && card.labels.length ? `
-    <div class="panel-section">
-      <h3>Labels</h3>
-      <div class="flex gap-8" style="flex-wrap:wrap">
-        ${card.labels.map(l => `<span class="label-badge" style="background:${l.color || '#4f8cff'}20;color:${l.color || '#4f8cff'};border:1px solid ${l.color || '#4f8cff'}">${esc(l.name)}</span>`).join('')}
-      </div>
-    </div>` : ''}
-    ${card.checklists && card.checklists.length ? `
-    <div class="panel-section">
-      <h3>Checklists</h3>
-      ${card.checklists.map(cl => `
-        <div style="margin-bottom:8px">
-          <strong class="text-sm">${esc(cl.name)}</strong>
-          ${cl.tasks && cl.tasks.length ? cl.tasks.map(t => `
-            <div class="checklist-item">
-              <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTask('${t.id}', this.checked)">
-              <span style="${t.done ? 'text-decoration:line-through;color:var(--text2)' : ''}">${esc(t.name)}</span>
-            </div>
-          `).join('') : '<span class="text-sm">No tasks</span>'}
-        </div>
-      `).join('')}
-    </div>` : ''}
-    ${card.comments && card.comments.length ? `
-    <div class="panel-section">
-      <h3>Comments (${card.comments.length})</h3>
-      ${card.comments.map(c => `
-        <div class="comment">
-          <span class="author">${esc(c.user?.name || 'Unknown')}</span>
-          <span class="time">${new Date(c.created_at).toLocaleDateString()}</span>
-          <div class="text">${esc(c.text)}</div>
-        </div>
-      `).join('')}
-    </div>` : ''}
-    <div class="panel-section">
-      <h3>Add Comment</h3>
-      <form onsubmit="return addComment(event, '${card.id}')">
-        <textarea id="comment-text" placeholder="Write a comment..." required style="margin-bottom:8px"></textarea>
-        <button type="submit" class="btn btn-primary btn-sm">Comment</button>
-      </form>
-    </div>
-    <div class="panel-section" style="border-top:1px solid var(--border);padding-top:16px">
-      <button class="btn btn-sm btn-danger" onclick="deleteCardFromPanel('${card.id}')">Delete Card</button>
-    </div>
-  `;
+  // Archive button text
+  const archiveBtn = $('#archive-btn');
+  archiveBtn.innerHTML = card.is_closed
+    ? '<span class="sidebar-btn-icon">📦</span> Send to Board'
+    : '<span class="sidebar-btn-icon">📦</span> Archive';
+
+  // Main area
+  const main = $('#modal-main');
+  let totalTasks = 0, doneTasks = 0;
+  if (card.checklists) {
+    for (const cl of card.checklists) {
+      if (cl.tasks) {
+        for (const t of cl.tasks) { totalTasks++; if (t.is_completed) doneTasks++; }
+      }
+    }
+  }
+
+  main.innerHTML = renderDescriptionSection(card)
+    + renderTaskListsSection(card, totalTasks, doneTasks)
+    + renderCommentsActionsSection(card);
 }
 
-async function addComment(e, cardId) {
-  e.preventDefault();
+function renderDescriptionSection(card) {
+  const desc = card.description || '';
+  return `
+    <div class="panel-section">
+      <div class="section-header">
+        <span class="section-icon">📝</span>
+        <h3>Description</h3>
+        <button class="btn btn-sm btn-icon section-edit-btn" onclick="editDescription()" title="Edit description">✏️</button>
+      </div>
+      <div id="desc-view">${desc ? `<p>${esc(desc)}</p>` : '<p class="text-sm desc-placeholder">Add more detailed description</p>'}</div>
+      <div id="desc-edit" style="display:none">
+        <textarea id="desc-textarea" placeholder="Add more detailed description" style="width:100%;min-height:80px">${esc(desc)}</textarea>
+        <div class="flex gap-8 mt-8">
+          <button class="btn btn-primary btn-sm" onclick="saveDescription()">Save</button>
+          <button class="btn btn-sm" onclick="cancelEditDescription()">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderTaskListsSection(card, totalTasks, doneTasks) {
+  const checks = card.checklists || [];
+  const pct = totalTasks > 0 ? Math.round(doneTasks / totalTasks * 100) : 0;
+  let html = `
+    <div class="panel-section">
+      <div class="section-header">
+        <span class="section-icon">☑️</span>
+        <h3>Task List</h3>
+        <span class="task-progress-text">${doneTasks}/${totalTasks}</span>
+        <div class="task-progress-bar"><div class="task-progress-fill" style="width:${pct}%"></div></div>
+      </div>
+      <div id="task-lists-content">`;
+  if (checks.length === 0) {
+    html += '<p class="text-sm desc-placeholder">No task lists yet</p>';
+  } else {
+    for (const cl of checks) {
+      html += `<div class="task-list-block" data-tl-id="${cl.id}">
+        <div class="task-list-header">
+          <strong>${esc(cl.name)}</strong>
+          <button class="btn btn-sm btn-icon" onclick="deleteTaskList('${cl.id}')" title="Delete list">&times;</button>
+        </div>`;
+      if (cl.tasks) {
+        for (const t of cl.tasks) {
+          html += `<div class="checklist-item" data-task-id="${t.id}" data-tl-id="${cl.id}">
+            <input type="checkbox" ${t.is_completed ? 'checked' : ''} onchange="toggleTask('${cl.id}','${t.id}', this.checked)">
+            <span class="${t.is_completed ? 'task-done' : ''}">${esc(t.name)}</span>
+            <button class="btn btn-sm btn-icon task-del-btn" onclick="deleteTask('${cl.id}','${t.id}')">&times;</button>
+          </div>`;
+        }
+      }
+      html += `<div class="task-add-row">
+        <input type="text" placeholder="Add another task" class="task-add-input"
+               onkeydown="if(event.key==='Enter')addTask('${cl.id}', this)">
+      </div>
+      </div>`;
+    }
+  }
+  html += '</div></div>';
+  return html;
+}
+
+function renderCommentsActionsSection(card) {
+  const comments = card.comments || [];
+  return `
+    <div class="panel-section">
+      <div class="section-header">
+        <span class="section-icon">📋</span>
+      </div>
+      <div class="comment-tabs">
+        <button class="tab active" data-tab="comments" onclick="switchTab('comments', '${card.id}')">Comments</button>
+        <button class="tab" data-tab="actions" onclick="switchTab('actions', '${card.id}')">Actions</button>
+      </div>
+      <div id="comments-panel" class="tab-panel active">
+        <div id="comments-list" class="comments-list">
+          ${comments.map(c => `
+            <div class="comment">
+              <span class="author">${esc(c.user?.name || 'Unknown')}</span>
+              <span class="time">${new Date(c.created_at).toLocaleDateString()}</span>
+              <div class="text">${esc(c.text)}</div>
+            </div>
+          `).join('')}
+        </div>
+        <textarea id="comment-text" placeholder="Write a comment..." style="width:100%;min-height:60px;margin-top:12px"></textarea>
+        <button class="btn btn-primary btn-sm mt-8" onclick="addComment('${card.id}')">Comment</button>
+      </div>
+      <div id="actions-panel" class="tab-panel">
+        <div id="actions-list" class="comments-list">
+          <p class="text-sm">Loading actions...</p>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ---- Description ----
+function editDescription() {
+  $('#desc-view').style.display = 'none';
+  $('#desc-edit').style.display = 'block';
+}
+function cancelEditDescription() {
+  $('#desc-view').style.display = 'block';
+  $('#desc-edit').style.display = 'none';
+}
+async function saveDescription() {
+  const desc = $('#desc-textarea').value.trim() || null;
+  try {
+    await API.updateCard(currentCard.id, { description: desc });
+    currentCard.description = desc;
+    $('#desc-view').innerHTML = desc ? `<p>${esc(desc)}</p>` : '<p class="text-sm desc-placeholder">Add more detailed description</p>';
+    cancelEditDescription();
+  } catch (err) { showAlert(err.message); }
+}
+
+// ---- Task Lists ----
+async function toggleTask(tlId, taskId, done) {
+  try {
+    await API.updateTask(currentCard.id, tlId, taskId, { is_completed: done });
+    currentCard = await API.getCard(currentCard.id);
+    renderCardModal(currentCard);
+  } catch (err) { showAlert(err.message); }
+}
+
+async function addTask(tlId, input) {
+  const name = input.value.trim();
+  if (!name) return;
+  try {
+    await API.createTask(currentCard.id, tlId, { name });
+    input.value = '';
+    currentCard = await API.getCard(currentCard.id);
+    renderCardModal(currentCard);
+  } catch (err) { showAlert(err.message); }
+}
+
+async function deleteTask(tlId, taskId) {
+  try {
+    await API.deleteTask(currentCard.id, tlId, taskId);
+    currentCard = await API.getCard(currentCard.id);
+    renderCardModal(currentCard);
+  } catch (err) { showAlert(err.message); }
+}
+
+async function deleteTaskList(tlId) {
+  if (!confirm('Delete this task list and all its tasks?')) return;
+  try {
+    await API.deleteTaskList(currentCard.id, tlId);
+    currentCard = await API.getCard(currentCard.id);
+    renderCardModal(currentCard);
+  } catch (err) { showAlert(err.message); }
+}
+
+async function addTaskListPrompt() {
+  const name = prompt('Task list name:');
+  if (!name) return;
+  try {
+    await API.addTaskList(currentCard.id, { card_id: currentCard.id, name });
+    currentCard = await API.getCard(currentCard.id);
+    renderCardModal(currentCard);
+  } catch (err) { showAlert(err.message); }
+}
+
+// ---- Comments & Actions tabs ----
+let currentCardIdForTab = null;
+let actionsLoaded = false;
+
+function switchTab(tab, cardId) {
+  currentCardIdForTab = cardId;
+  $$('.comment-tabs .tab').forEach(t => t.classList.remove('active'));
+  $$('.tab-panel').forEach(p => p.classList.remove('active'));
+  $(`.comment-tabs .tab[data-tab="${tab}"]`).classList.add('active');
+  $(`#${tab}-panel`).classList.add('active');
+  if (tab === 'actions' && !actionsLoaded) {
+    loadActions(cardId);
+  }
+}
+
+async function loadActions(cardId) {
+  try {
+    const actions = await API.listActions(cardId);
+    const list = $('#actions-list');
+    if (!actions || actions.length === 0) {
+      list.innerHTML = '<p class="text-sm">No actions yet</p>';
+    } else {
+      list.innerHTML = actions.map(a => `
+        <div class="comment">
+          <span class="time">${new Date(a.created_at).toLocaleDateString()}</span>
+          <div class="text">${esc(a.action_type)}: ${esc(a.data)}</div>
+        </div>
+      `).join('');
+    }
+    actionsLoaded = true;
+  } catch (err) {
+    $('#actions-list').innerHTML = '<p class="text-sm">Failed to load actions</p>';
+  }
+}
+
+async function addComment(cardId) {
   const text = $('#comment-text').value.trim();
   if (!text) return;
   try {
     await API.createComment({ card_id: cardId, text });
     $('#comment-text').value = '';
-    await openCard(cardId); // refresh panel
+    const comments = await API.listComments(cardId);
+    currentCard.comments = comments;
+    $('#comments-list').innerHTML = comments.map(c => `
+      <div class="comment">
+        <span class="author">${esc(c.user?.name || 'Unknown')}</span>
+        <span class="time">${new Date(c.created_at).toLocaleDateString()}</span>
+        <div class="text">${esc(c.text)}</div>
+      </div>
+    `).join('');
   } catch (err) { showAlert(err.message); }
 }
 
-async function deleteCardFromPanel(cardId) {
+// ---- Sidebar actions ----
+async function showLabelsPicker() {
+  // Simple approach: prompt for label name — full label picker would be more complex
+  try {
+    const labels = await API.listBoardLabels(boardId);
+    if (!labels || labels.length === 0) {
+      showAlert('No labels on this board. Create one in settings.', 'info');
+      return;
+    }
+    const names = labels.map((l, i) => `${i+1}. ${l.name} (${l.color})`).join('\n');
+    const choice = prompt(`Available labels:\n${names}\n\nEnter label number to toggle:`);
+    const idx = parseInt(choice) - 1;
+    if (isNaN(idx) || idx < 0 || idx >= labels.length) return;
+    const label = labels[idx];
+    // Check if already attached
+    const has = currentCard.labels.some(l => l.id === label.id);
+    if (has) {
+      await API.removeCardLabel(currentCard.id, { label_id: label.id });
+    } else {
+      await API.addCardLabel(currentCard.id, { label_id: label.id });
+    }
+    currentCard = await API.getCard(currentCard.id);
+    renderCardModal(currentCard);
+  } catch (err) { showAlert(err.message); }
+}
+
+async function setDueDate() {
+  const val = prompt('Due date (YYYY-MM-DD or text):', currentCard.due_date || '');
+  if (val === null) return;
+  try {
+    await API.updateCard(currentCard.id, { due_date: val || null });
+    currentCard.due_date = val || null;
+  } catch (err) { showAlert(err.message); }
+}
+
+async function setStartDate() {
+  const val = prompt('Start date (YYYY-MM-DD or text):', currentCard.start_date || '');
+  if (val === null) return;
+  try {
+    await API.updateCard(currentCard.id, { start_date: val || null });
+    currentCard.start_date = val || null;
+  } catch (err) { showAlert(err.message); }
+}
+
+async function archiveCard() {
+  try {
+    const newClosed = !currentCard.is_closed;
+    await API.updateCard(currentCard.id, { is_closed: newClosed });
+    currentCard.is_closed = newClosed;
+    renderCardModal(currentCard);
+  } catch (err) { showAlert(err.message); }
+}
+
+async function deleteCardFromPanel() {
   if (!confirm('Delete this card?')) return;
   try {
-    await API.deleteCard(cardId);
+    await API.deleteCard(currentCard.id);
     closePanel();
     await loadBoard();
   } catch (err) { showAlert(err.message); }
-}
-
-async function toggleTask(taskId, done) {
-  // We'd need a dedicated endpoint; for now just visual feedback
-  // The API PUT /cards/:id can update the card but not individual tasks
-  console.log('Toggle task', taskId, done);
 }
 
 // Add card
@@ -328,7 +576,7 @@ async function deleteBoard() {
   if (!confirm('Delete this entire board? This cannot be undone.')) return;
   try {
     await API.deleteBoard(boardId);
-    window.location.href = '/boards.html';
+    window.location.href = '/boards';
   } catch (err) { showAlert(err.message); }
 }
 

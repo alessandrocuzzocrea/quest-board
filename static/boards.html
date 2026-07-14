@@ -6,7 +6,7 @@
 <title>Boards — quest-board</title>
 <link rel="stylesheet" href="/css/style.css">
 <script src="/js/api.js"></script>
-<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+<script src="/js/htmx.min.js"></script>
 </head>
 <body>
 <div id="nav"></div>
@@ -65,6 +65,7 @@ let deleteTarget = null;
 async function init() {
   const user = await requireAuth();
   if (!user) return;
+  document.getElementById('nav').appendChild(navBar('boards'));
   $('#user-name').textContent = user.name;
   boards = await API.listBoards();
   renderBoards(boards);
@@ -100,7 +101,7 @@ $('#search-input').addEventListener('input', function() {
   renderBoards(filtered);
 });
 
-function openBoard(id) { window.location.href = `/board.html?id=${id}`; }
+function openBoard(id) { window.location.href = `/board?id=${id}`; }
 
 function showCreateBoard() { openModal('create-modal'); $('#new-board-name').focus(); }
 
