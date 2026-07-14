@@ -2,9 +2,9 @@ use crate::error::AppError;
 use crate::models::user::{User, UserResponse};
 use uuid::Uuid;
 
-pub async fn find_by_email(pool: &sqlx::PgPool, email: &str) -> Result<Option<User>, AppError> {
-    Ok(sqlx::query_as("SELECT * FROM users WHERE email = $1")
-        .bind(email)
+pub async fn find_by_username(pool: &sqlx::PgPool, username: &str) -> Result<Option<User>, AppError> {
+    Ok(sqlx::query_as("SELECT * FROM users WHERE username = $1")
+        .bind(username)
         .fetch_optional(pool)
         .await?)
 }
@@ -18,14 +18,14 @@ pub async fn find_by_id(pool: &sqlx::PgPool, id: &Uuid) -> Result<Option<User>, 
 
 pub async fn create(
     pool: &sqlx::PgPool,
-    email: &str,
+    username: &str,
     password_hash: &str,
     name: &str,
 ) -> Result<User, AppError> {
     Ok(sqlx::query_as(
-        "INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING *",
+        "INSERT INTO users (username, password_hash, name) VALUES ($1, $2, $3) RETURNING *",
     )
-    .bind(email)
+    .bind(username)
     .bind(password_hash)
     .bind(name)
     .fetch_one(pool)

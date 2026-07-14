@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings — quest-board</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="/js/api.js"></script>
+</head>
+<body>
+<div id="nav"></div>
+<div class="page" style="max-width:640px">
+  <h1 class="mb-16">Settings</h1>
+
+  <div class="settings-section">
+    <h2>Profile</h2>
+    <form onsubmit="return updateProfile(event)">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="settings-name" required>
+      </div>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="settings-username" disabled style="opacity:.6">
+      </div>
+      <button type="submit" class="btn btn-primary">Save Changes</button>
+    </form>
+  </div>
+
+  <div class="settings-section">
+    <h2>Change Password</h2>
+    <form onsubmit="return changePassword(event)">
+      <div class="form-group">
+        <label>Current Password</label>
+        <input type="password" id="settings-current-password" required>
+      </div>
+      <div class="form-group">
+        <label>New Password</label>
+        <input type="password" id="settings-new-password" required minlength="6">
+      </div>
+      <button type="submit" class="btn btn-primary">Update Password</button>
+    </form>
+  </div>
+
+  <div class="settings-section">
+    <h2>API Keys</h2>
+    <div id="api-keys-list" class="mb-8"></div>
+    <form onsubmit="return createApiKey(event)" class="flex gap-8">
+      <input type="text" id="new-key-name" placeholder="Key name (e.g. ci)" required style="flex:1">
+      <button type="submit" class="btn btn-primary">Generate</button>
+    </form>
+  </div>
+</div>
+
+<script>
+let user = null;
+
+async function init() {
+  user = await requireAuth();
+  if (!user) return;
+  $('#user-name').textContent = user.name;
+  $('#settings-name').value = user.name;
+  $('#settings-username').value = user.username;
+  loadApiKeys();
+}
+init();
+
+async function updateProfile(e) {
+  e.preventDefault();
+  try {
+    const res = await API.updateName($('#settings-name').value);
+    user = res.user;
+    $('#user-name').textContent = user.name;
+    showAlert('Profile updated', 'success');
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+async function changePassword(e) {
+  e.preventDefault();
+  try {
+    await API.changePassword($('#settings-current-password').value, $('#settings-new-password').value);
+    showAlert('Password changed', 'success');
+    $('#settings-current-password').value = '';
+    $('#settings-new-password').value = '';
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+async function loadApiKeys() {
+  try {
+    const keys = await API.listApiKeys();
+    const list = $('#api-keys-list');
+    list.innerHTML = keys.length
+      ? keys.map(k => `<div class="api-key-row"><span>${esc(k.name)}</span><code class="key-preview">${esc(k.prefix)}…</code><span class="text-sm">${esc(k.last_used_at ? 'Last used ' + new Date(k.last_used_at).toLocaleDateString() : 'Never used')}</span><button onclick="deleteKey('${k.id}')" class="btn btn-sm btn-danger">Delete</button></div>`).join('')
+      : '<p class="text-sm" style="color:var(--text2)">No API keys yet.</p>';
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+async function createApiKey(e) {
+  e.preventDefault();
+  try {
+    const res = await API.createApiKey({ name: $('#new-key-name').value });
+    showAlert(`Key created: ${res.key} (copy it now, it won't be shown again)`, 'success');
+    $('#new-key-name').value = '';
+    loadApiKeys();
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+async function deleteKey(id) {
+  if (!confirm('Delete this API key?')) return;
+  try {
+    await API.deleteApiKey(id);
+    loadApiKeys();
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+</script>
+</body>
+</html>

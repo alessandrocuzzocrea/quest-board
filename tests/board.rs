@@ -2,12 +2,19 @@ use quest_board::AppState;
 use std::sync::Arc;
 use std::sync::LazyLock;
 use tokio::sync::Mutex;
+use tokio::sync::MutexGuard;
 use tower::ServiceExt;
 
 static SETUP_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+struct TestApp {
+    _guard: MutexGuard<'static, ()>,
+    app: axum::Router,
+    _pool: sqlx::PgPool,
+}
 
-async fn setup() -> (axum::Router, sqlx::PgPool) {
-    let _guard = SETUP_MUTEX.lock().await;
+
+async fn setup() -> TestApp {
+    let guard = SETUP_MUTEX.lock().await;
     dotenvy::from_filename(".env.test").ok();
 
     let database_url = std::env::var("DATABASE_URL")
@@ -26,11 +33,11 @@ async fn setup() -> (axum::Router, sqlx::PgPool) {
 
     let state = Arc::new(AppState { db: pool.clone(), ai_client: Arc::new(quest_board::handlers::ai::RealLlmClient) });
     let app = quest_board::build_app(pool.clone(), state).await;
-    (app, pool)
+    TestApp { _guard: guard, app, _pool: pool }
 }
 
-async fn register(app: &axum::Router, email: &str) -> String {
-    let body = format!(r#"{{"email":"{email}","password":"pass","name":"T"}}"#);
+async fn register(app: &axum::Router, username: &str) -> String {
+    let body = format!(r#"{{"username":"{username}","password":"pass","name":"T"}}"#);
     let req = axum::http::Request::builder()
         .method("POST").uri("/api/v1/auth/register")
         .header("content-type", "application/json")
@@ -43,19 +50,19 @@ async fn register(app: &axum::Router, email: &str) -> String {
 
 #[tokio::test]
 async fn test_create_board_requires_auth() {
-    let (app, _pool) = setup().await;
+    let ta = setup().await;
     let req = axum::http::Request::builder()
         .method("POST").uri("/api/v1/boards")
         .header("content-type", "application/json")
         .body(axum::body::Body::from(r#"{"name":"Test"}"#)).unwrap();
-    let resp = app.oneshot(req).await.unwrap();
+    let resp = ta.app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 401, "unauthenticated POST should be 401, got {}", resp.status());
 }
 
 #[tokio::test]
 async fn test_create_and_list_board() {
-    let (app, _pool) = setup().await;
-    let cookie = register(&app, "test@test.com").await;
+    let ta = setup().await;
+    let cookie = register(&ta.app, "testuser").await;
 
     // Create board
     let req = axum::http::Request::builder()
@@ -63,7 +70,7 @@ async fn test_create_and_list_board() {
         .header("content-type", "application/json")
         .header("cookie", &cookie)
         .body(axum::body::Body::from(r#"{"name":"Test Board"}"#)).unwrap();
-    let resp = app.clone().oneshot(req).await.unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
     let status = resp.status();
     let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
     assert_eq!(status, 200, "create board: {}", String::from_utf8_lossy(&bytes));
@@ -76,7 +83,7 @@ async fn test_create_and_list_board() {
         .method("GET").uri("/api/v1/boards")
         .header("cookie", &cookie)
         .body(axum::body::Body::empty()).unwrap();
-    let resp = app.clone().oneshot(req).await.unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
     let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
     let boards: Vec<serde_json::Value> = serde_json::from_slice(&bytes).unwrap_or_default();
     assert_eq!(boards.len(), 1);
@@ -85,9 +92,9 @@ async fn test_create_and_list_board() {
 
 #[tokio::test]
 async fn test_board_not_visible_to_other_users() {
-    let (app, _pool) = setup().await;
-    let cookie_a = register(&app, "alice@test.com").await;
-    let cookie_b = register(&app, "bob@test.com").await;
+    let ta = setup().await;
+    let cookie_a = register(&ta.app, "alice").await;
+    let cookie_b = register(&ta.app, "bob").await;
 
     // Alice creates board
     let req = axum::http::Request::builder()
@@ -95,7 +102,7 @@ async fn test_board_not_visible_to_other_users() {
         .header("content-type", "application/json")
         .header("cookie", &cookie_a)
         .body(axum::body::Body::from(r#"{"name":"Alice's Board"}"#)).unwrap();
-    let resp = app.clone().oneshot(req).await.unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 200, "alice create board");
 
     // Bob lists boards
@@ -103,7 +110,7 @@ async fn test_board_not_visible_to_other_users() {
         .method("GET").uri("/api/v1/boards")
         .header("cookie", &cookie_b)
         .body(axum::body::Body::empty()).unwrap();
-    let resp = app.clone().oneshot(req).await.unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 200, "bob list boards");
     let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
     let boards: Vec<serde_json::Value> = serde_json::from_slice(&bytes).unwrap_or_default();
