@@ -354,6 +354,10 @@ async fn test_board_html_contains_kanban_and_modals() {
     // Due/start date display on kanban cards
     assert!(html.contains("c.due_date"), "board.html: renderKanban must render due_date on cards");
     assert!(html.contains("c.start_date"), "board.html: renderKanban must render start_date on cards");
+    // Gantt chart view
+    assert!(html.contains("renderGantt"), "board.html: must have renderGantt function");
+    assert!(html.contains("gantt-chart"), "board.html: must have gantt-chart container");
+    assert!(html.contains("view-toggle"), "board.html: must have view toggle buttons");
 }
 
 #[tokio::test]
@@ -430,6 +434,12 @@ async fn test_css_contains_required_styles() {
     assert!(css.contains("date-start"), "CSS must define date-start style");
     assert!(css.contains("date-due"), "CSS must define date-due style");
     assert!(css.contains("date-overdue"), "CSS must define date-overdue style");
+    // Gantt chart styles
+    assert!(css.contains("view-toggle"), "CSS must define view-toggle styles");
+    assert!(css.contains("gantt-chart"), "CSS must define gantt-chart styles");
+    assert!(css.contains("gantt-timeline"), "CSS must define gantt-timeline styles");
+    assert!(css.contains("gantt-row"), "CSS must define gantt-row styles");
+    assert!(css.contains("gantt-bar"), "CSS must define gantt-bar styles");
 
     // Responsive
     assert!(css.contains("@media"), "CSS must have responsive rules");

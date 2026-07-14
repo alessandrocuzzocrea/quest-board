@@ -17,6 +17,10 @@
         <span class="slug" id="board-slug"></span>
       </div>
       <div class="flex gap-8">
+        <div class="view-toggle" id="view-toggle">
+          <button class="btn btn-sm view-btn active" data-view="kanban" onclick="switchView('kanban')">Kanban</button>
+          <button class="btn btn-sm view-btn" data-view="gantt" onclick="switchView('gantt')">Gantt</button>
+        </div>
         <button class="btn" onclick="window.location.href='/boards'">&larr; Boards</button>
         <button class="btn btn-danger" id="delete-board-btn" onclick="deleteBoard()">Delete Board</button>
       </div>
@@ -128,6 +132,117 @@ async function loadBoard() {
   } catch (err) {
     showAlert('Failed to load board: ' + err.message);
   }
+}
+
+// ---- View toggle ----
+let currentView = 'kanban';
+
+function switchView(view) {
+  currentView = view;
+  $$('.view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  if (view === 'gantt') renderGantt();
+  else renderKanban();
+}
+
+// ---- Gantt chart ----
+function renderGantt() {
+  const container = $('#kanban');
+  if (!lists || lists.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>No cards to show on Gantt chart.</p></div>';
+    return;
+  }
+
+  const allCards = [];
+  for (const list of lists) {
+    for (const c of (list.cards || [])) {
+      allCards.push({ ...c, listName: list.name });
+    }
+  }
+
+  const datedCards = allCards.filter(c => c.due_date || c.start_date);
+  const today = new Date();
+
+  let minDate = null, maxDate = null;
+  for (const c of datedCards) {
+    for (const key of ['start_date', 'due_date']) {
+      if (c[key]) {
+        const d = new Date(c[key]);
+        if (!isNaN(d.getTime())) {
+          if (!minDate || d < minDate) minDate = d;
+          if (!maxDate || d > maxDate) maxDate = d;
+        }
+      }
+    }
+  }
+
+  if (!minDate) minDate = new Date(today);
+  if (!maxDate) maxDate = new Date(today);
+  minDate.setDate(minDate.getDate() - 7);
+  maxDate.setDate(maxDate.getDate() + 21);
+
+  const totalDays = Math.max(1, Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)));
+
+  function dateToPct(d) {
+    const diff = (d - minDate) / (1000 * 60 * 60 * 24);
+    return Math.max(0, Math.min(100, (diff / totalDays) * 100));
+  }
+
+  let html = '<div class="gantt-chart">';
+
+  html += '<div class="gantt-timeline">';
+  for (let i = 0; i <= totalDays; i += 7) {
+    const d = new Date(minDate);
+    d.setDate(d.getDate() + i);
+    const left = (i / totalDays) * 100;
+    html += `<span class="gantt-tick" style="left:${left}%">${d.toLocaleDateString('en-US', {month:'short', day:'numeric'})}</span>`;
+  }
+  html += '</div>';
+
+  for (const list of lists) {
+    const cards = (list.cards || []).filter(c => c.due_date || c.start_date);
+    const unscheduled = (list.cards || []).filter(c => !c.due_date && !c.start_date);
+    if (cards.length === 0 && unscheduled.length === 0) continue;
+
+    html += `<div class="gantt-list-header">${esc(list.name)}</div>`;
+
+    for (const c of cards) {
+      const start = c.start_date ? new Date(c.start_date) : null;
+      const end = c.due_date ? new Date(c.due_date) : null;
+      const hasStart = start && !isNaN(start.getTime());
+      const hasEnd = end && !isNaN(end.getTime());
+
+      let left = 0, width = 0;
+      if (hasStart && hasEnd) {
+        left = dateToPct(start);
+        const right = dateToPct(end);
+        width = Math.max(2, right - left);
+      } else if (hasStart) {
+        left = dateToPct(start);
+        width = 2;
+      } else if (hasEnd) {
+        left = 0;
+        width = dateToPct(end);
+      }
+
+      const isOverdue = hasEnd && end < today && !c.is_due_completed;
+      html += `<div class="gantt-row" onclick="openCard('${c.id}')">
+        <div class="gantt-label">${esc(c.name)}</div>
+        <div class="gantt-bar-wrap">
+          <div class="gantt-bar ${isOverdue ? 'gantt-overdue' : ''}" style="left:${left}%;width:${width}%"></div>
+        </div>
+      </div>`;
+    }
+
+    for (const c of unscheduled) {
+      html += `<div class="gantt-row" onclick="openCard('${c.id}')">
+        <div class="gantt-label">${esc(c.name)}</div>
+        <div class="gantt-bar-wrap"><span class="text-sm" style="padding:4px 8px">No dates</span></div>
+      </div>`;
+    }
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
 }
 
 function renderKanban() {
