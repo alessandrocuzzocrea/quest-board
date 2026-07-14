@@ -158,7 +158,7 @@ pub async fn htmx_login(
     match try_login(&state, &session, &req).await {
         Ok(_) => {
             // HTMX redirect on success
-            (StatusCode::OK, [("HX-Redirect", "/boards.html")]).into_response()
+            (StatusCode::OK, [("HX-Redirect", "/boards")]).into_response()
         }
         Err(e) => {
             let msg = match &e {

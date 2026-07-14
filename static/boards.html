@@ -100,7 +100,7 @@ $('#search-input').addEventListener('input', function() {
   renderBoards(filtered);
 });
 
-function openBoard(id) { window.location.href = `/board.html?id=${id}`; }
+function openBoard(id) { window.location.href = `/board?id=${id}`; }
 
 function showCreateBoard() { openModal('create-modal'); $('#new-board-name').focus(); }
 
