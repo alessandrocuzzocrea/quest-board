@@ -13,7 +13,8 @@
   <div class="board-header">
     <div class="flex items-center justify-between">
       <div>
-        <h1 id="board-title">Loading...</h1>
+        <h1 id="board-title" style="display:inline">Loading...</h1>
+        <button class="btn btn-sm btn-icon" id="rename-board-btn" onclick="startRenameBoard()" title="Rename board" style="vertical-align:middle;margin-left:4px">&#9998;</button>
         <span class="slug" id="board-slug"></span>
       </div>
       <div class="flex gap-8">
@@ -756,6 +757,37 @@ async function deleteBoard() {
     await API.deleteBoard(boardId);
     window.location.href = '/boards';
   } catch (err) { showAlert(err.message); }
+}
+
+// ── Board rename ──────────────────────────────────────────────
+let renameOrigName = '';
+
+function startRenameBoard() {
+  const title = $('#board-title');
+  renameOrigName = title.textContent;
+  title.innerHTML = '<input type="text" id="rename-input" class="input" style="font-size:18px;font-weight:700;padding:4px 8px" value="' + esc(renameOrigName) + '">'
+    + ' <button class="btn btn-sm btn-primary" onclick="saveRenameBoard()">Save</button>'
+    + ' <button class="btn btn-sm" onclick="cancelRenameBoard()">Cancel</button>';
+  const input = $('#rename-input');
+  input.focus();
+  input.select();
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') saveRenameBoard();
+    if (e.key === 'Escape') cancelRenameBoard();
+  });
+}
+
+function cancelRenameBoard() {
+  $('#board-title').textContent = renameOrigName;
+}
+
+async function saveRenameBoard() {
+  const name = $('#rename-input').value.trim();
+  if (!name || name === renameOrigName) { cancelRenameBoard(); return; }
+  try {
+    await API.updateBoard(boardId, { name });
+    await loadBoard();
+  } catch (err) { showAlert(err.message); cancelRenameBoard(); }
 }
 
 function openModal(id) { $(`#${id}`).classList.add('open'); }
