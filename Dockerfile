@@ -1,10 +1,10 @@
 FROM rust:slim-bookworm AS build
 WORKDIR /app
-COPY backend/Cargo.toml backend/Cargo.lock ./
+COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs && mkdir -p handlers repository models migrations
 RUN cargo build --release 2>/dev/null || true
-COPY backend/src src/
-COPY backend/migrations migrations/
+COPY src src/
+COPY migrations migrations/
 RUN touch src/main.rs && cargo build --release
 
 FROM debian:bookworm-slim
