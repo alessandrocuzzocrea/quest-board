@@ -65,6 +65,7 @@ let deleteTarget = null;
 async function init() {
   const user = await requireAuth();
   if (!user) return;
+  document.getElementById('nav').appendChild(navBar('boards'));
   $('#user-name').textContent = user.name;
   boards = await API.listBoards();
   renderBoards(boards);

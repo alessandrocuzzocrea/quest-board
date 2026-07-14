@@ -58,6 +58,7 @@ let user = null;
 async function init() {
   user = await requireAuth();
   if (!user) return;
+  document.getElementById('nav').appendChild(navBar('settings'));
   $('#user-name').textContent = user.name;
   $('#settings-name').value = user.name;
   $('#settings-username').value = user.username;
