@@ -2,12 +2,8 @@
 /backend/target
 backend/static/
 node_modules/
-.svelte-kit/
 .DS_Store
 *.swp
 openapi.json
 .env
-frontend/src/lib/types/bindings/
 
-*storybook.log
-storybook-static

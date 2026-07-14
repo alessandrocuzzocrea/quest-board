@@ -1,11 +1,10 @@
 # quest-board
 
-Kanban board. Rust backend (Axum + PostgreSQL), SvelteKit frontend.
+Kanban board API. Rust backend (Axum + PostgreSQL).
 
 ## Prerequisites
 
 - Rust 1.85+
-- Node.js 20+
 - PostgreSQL 17 (or Docker)
 
 ## Quick start
@@ -22,14 +21,10 @@ docker run -d --name quest-pg \
 cp backend/.env.example backend/.env
 # Edit backend/.env and set a random APP_SECRET
 
-# 3. Start both servers with auto-reload (from frontend/)
-cd frontend
-npm install
-cargo install cargo-watch          # one-time, for backend auto-reload
-npm run dev
-# Backend at http://localhost:3001 — auto-reloads on src/ changes
-# Frontend at http://localhost:5173 — HMR on any change
-# (append --host for LAN access: npm run dev -- --host)
+# 3. Start the backend
+cd backend
+cargo run
+# API at http://localhost:3001
 ```
 
 ## Backend auto-reload with cargo watch
@@ -47,37 +42,18 @@ Install `cargo-watch` once:
 cargo install cargo-watch
 ```
 
-Then either:
+Then:
 
 ```sh
 cd backend && cargo dev
-# or the full command:
-cd backend && cargo watch -w src -x run
-```
-
-## Manual start (without auto-reload)
-
-```sh
-# Terminal 1: backend
-cd backend
-APP_SECRET=<your-secret> cargo run
-
-# Terminal 2: frontend
-cd frontend
-npm install
-npm run dev
 ```
 
 ## Production build
 
 ```sh
-cd frontend
-npm run build          # outputs to ../backend/static/
-
-cd ../backend
+cd backend
 DATABASE_URL="..." cargo build --release
 ./target/release/quest-board
-# Single binary serves both the API and the SPA on :3001
 ```
 
 ## Project structure
@@ -92,11 +68,7 @@ quest-board/
 │   │   ├── models/          # domain types
 │   │   ├── handlers/        # HTTP handlers (thin — call repos)
 │   │   └── repository/      # data access layer (all SQL here)
-│   ├── migrations/          # SQL schema
-│   └── static/              # frontend build output (gitignored)
-├── frontend/          # SvelteKit SPA
-│   ├── src/routes/
-│   └── svelte.config.js     # static adapter, outputs to ../backend/static/
+│   └── migrations/          # SQL schema
 └── .gitignore
 ```
 
