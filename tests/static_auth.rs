@@ -221,12 +221,12 @@ async fn test_boards_clean_url_redirects_when_unauthed() {
 }
 
 #[tokio::test]
-async fn test_board_clean_url_redirects_when_unauthed() {
+async fn test_board_slug_url_redirects_when_unauthed() {
     let ta = setup().await;
 
     let req = axum::http::Request::builder()
         .method("GET")
-        .uri("/board")
+        .uri("/board/test-slug/my-board")
         .body(axum::body::Body::empty())
         .unwrap();
 
@@ -277,6 +277,31 @@ async fn test_boards_clean_url_serves_when_authed() {
         200,
         "authenticated user should be able to access /boards"
     );
+}
+
+#[tokio::test]
+async fn test_board_slug_url_serves_when_authed() {
+    let ta = setup().await;
+    let cookie = register(&ta.app).await;
+
+    let req = axum::http::Request::builder()
+        .method("GET")
+        .uri("/board/test-slug/my-board")
+        .header("cookie", &cookie)
+        .body(axum::body::Body::empty())
+        .unwrap();
+
+    let resp = ta.app.oneshot(req).await.unwrap();
+
+    assert_eq!(
+        resp.status(),
+        200,
+        "authenticated user should be able to access /board/{{slug}}/{{name}}"
+    );
+
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let html = String::from_utf8(body.to_vec()).unwrap();
+    assert!(html.contains("kanban"), "board page should contain kanban element");
 }
 
 // ── Root path / redirects based on auth status ──────────────────────

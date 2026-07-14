@@ -108,17 +108,20 @@
 let board = null;
 let lists = [];
 let boardId = null;
+let currentSlug = null;
 let dragCard = null;
 
 async function init() {
   const user = await requireAuth();
   if (!user) return;
-  const params = new URLSearchParams(location.search);
-  boardId = params.get('id');
-  if (!boardId) { window.location.href = '/boards'; return; }
+  // Extract slug from /board/{slug}/{name}
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const slug = pathParts[1];
+  if (!slug) { window.location.href = '/boards'; return; }
+  currentSlug = slug;
   document.getElementById('nav').appendChild(navBar('board'));
   $('#user-name').textContent = user.name;
-  await loadBoard();
+  await loadBoard(slug);
 }
 init();
 
@@ -149,10 +152,13 @@ function connectSSE() {
   };
 }
 connectSSE();
-
-async function loadBoard() {
+async function loadBoard(slug) {
+  slug = slug || currentSlug;
+  if (!slug) { window.location.href = '/boards'; return; }
   try {
-    board = await API.getBoard(boardId);
+    board = await API.getBoardBySlug(slug);
+    boardId = board.board.id;
+    currentSlug = slug;
     $('#board-title').textContent = board.board.name;
     $('#board-slug').textContent = board.board.slug ? '/' + board.board.slug : '';
     lists = board.lists || [];

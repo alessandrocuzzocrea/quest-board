@@ -28,7 +28,7 @@ pub struct AppState {
 
 // Known app pages that require authentication (both clean and .html forms)
 const PROTECTED_PATHS: &[&str] = &[
-    "/boards", "/board", "/settings",
+    "/boards", "/settings",
     "/boards.html", "/board.html", "/settings.html",
 ];
 
@@ -44,17 +44,18 @@ async fn require_auth_for_html(
     }
 
     let is_protected = req_path.ends_with(".html")
-        || PROTECTED_PATHS.contains(&req_path.as_str());
+        || PROTECTED_PATHS.contains(&req_path.as_str())
+        || req_path.starts_with("/board/");
 
     if !is_protected {
         return next.run(request).await;
     }
-
+    
     // Check session for user_id
     let session = request.extensions()
         .get::<tower_sessions::Session>()
         .cloned();
-
+    
     match session {
         Some(session) => {
             match session.get::<String>("user_id").await {
@@ -122,7 +123,7 @@ pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router
         .route("/login", get(handlers::auth::htmx_login_page).post(handlers::auth::htmx_login))
         .route("/", get(root_handler))
         .route("/boards", get(page_boards))
-        .route("/board", get(page_board))
+        .route("/board/{slug}/{*name}", get(page_board))
         .route("/settings", get(page_settings))
         .nest("/api/v1", api)
         .fallback_service(static_files)
