@@ -86,6 +86,7 @@ async function init() {
   const params = new URLSearchParams(location.search);
   boardId = params.get('id');
   if (!boardId) { window.location.href = '/boards'; return; }
+  document.getElementById('nav').appendChild(navBar('board'));
   $('#user-name').textContent = user.name;
   await loadBoard();
 }
