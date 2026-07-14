@@ -21,7 +21,8 @@ async fn setup() -> TestApp {
     sqlx::query("DROP TABLE IF EXISTS api_keys, sessions, favorites, notifications, actions, tasks, task_lists, attachments, comments, card_labels, labels, card_members, cards, lists, board_members, boards, users CASCADE")
         .execute(&pool).await.ok();
     quest_board::db::run_migrations(&pool).await.unwrap();
-    let state = Arc::new(AppState { db: pool.clone(), ai_client: Arc::new(quest_board::handlers::ai::RealLlmClient) });
+    let (event_tx, _) = quest_board::events::channel();
+    let state = Arc::new(AppState { db: pool.clone(), ai_client: Arc::new(quest_board::handlers::ai::RealLlmClient), event_tx });
     let app = quest_board::build_app(pool.clone(), state).await;
     TestApp { _guard, app, _pool: pool }
 }

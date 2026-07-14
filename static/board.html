@@ -122,6 +122,34 @@ async function init() {
 }
 init();
 
+// ---- Real-time SSE connection ----
+let sseTimer = null;
+function connectSSE() {
+  const es = new EventSource('/api/v1/events');
+  es.addEventListener('change', (e) => {
+    try {
+      const ev = JSON.parse(e.data);
+      // Only reload if event is for the current board
+      if (ev.board_id && ev.board_id !== boardId) return;
+      if (!ev.board_id && !ev.card_id) return; // skip events without board context
+      // Debounce: reload at most once per second
+      if (sseTimer) clearTimeout(sseTimer);
+      sseTimer = setTimeout(() => {
+        if (currentView === 'gantt') {
+          loadBoard().then(() => { if (currentView === 'gantt') renderGantt(); });
+        } else {
+          loadBoard();
+        }
+      }, 1000);
+    } catch (_) {}
+  });
+  es.onerror = () => {
+    // EventSource auto-reconnects; just log
+    console.warn('SSE connection lost, reconnecting...');
+  };
+}
+connectSSE();
+
 async function loadBoard() {
   try {
     board = await API.getBoard(boardId);

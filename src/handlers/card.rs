@@ -47,6 +47,9 @@ async fn create_card(
 
     repository::action_repo::record(&state.db, &card.id, Some(&uid), "createCard", serde_json::json!({"card": {"name": &req.name}})).await?;
 
+    crate::events::emit_simple(&state.event_tx, "card_created", &list.board_id.to_string(),
+        Some(&card.id.to_string()), Some(&req.list_id.to_string()), &uid.to_string());
+
     Ok(Json(serde_json::json!(card)))
 
 }
@@ -86,10 +89,12 @@ async fn update_card(
     Path(card_id): Path<String>,
     Json(req): Json<UpdateCardRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let _uid = user_id(&session).await?;
+    let uid = user_id(&session).await?;
     let card_id: uuid::Uuid = card_id.parse().map_err(|_| AppError::BadRequest("invalid card id".into()))?;
 
     let card = repository::card_repo::update_card(&state.db, &card_id, &req).await?;
+    crate::events::emit_simple(&state.event_tx, "card_updated", &card.board_id.to_string(),
+        Some(&card.id.to_string()), Some(&card.list_id.to_string()), &uid.to_string());
 
     Ok(Json(serde_json::json!(card)))
 }
@@ -100,9 +105,12 @@ async fn delete_card(
     session: tower_sessions::Session,
     Path(card_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let _uid = user_id(&session).await?;
+    let uid = user_id(&session).await?;
     let card_id: uuid::Uuid = card_id.parse().map_err(|_| AppError::BadRequest("invalid card id".into()))?;
     repository::card_repo::delete(&state.db, &card_id).await?;
+    // We don't have board_id here without additional query, skip board_id for delete events
+    crate::events::emit_simple(&state.event_tx, "card_deleted", "",
+        Some(&card_id.to_string()), None, &uid.to_string());
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
@@ -126,6 +134,9 @@ async fn move_card(
         &state.db, &card_id, Some(&uid), "moveCard",
         serde_json::json!({"fromList": {"id": old.list_id}, "toList": {"id": req.list_id}}),
     ).await?;
+
+    crate::events::emit_simple(&state.event_tx, "card_moved", &old.board_id.to_string(),
+        Some(&card.id.to_string()), Some(&req.list_id.to_string()), &uid.to_string());
 
     Ok(Json(serde_json::json!(card)))
 }

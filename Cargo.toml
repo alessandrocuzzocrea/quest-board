@@ -8,6 +8,8 @@ async-trait = "0.1"
 # Web framework
 axum = { version = "0.8", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+futures = "0.3"
 tower = "0.5"
 tower-http = { version = "0.7", features = ["cors", "fs"] }
 
