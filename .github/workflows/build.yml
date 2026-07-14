@@ -21,15 +21,12 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: backend
+          workspaces: .
       - run: cargo check --all-targets
       - run: cargo build --release
       - name: Create test database
@@ -43,4 +40,3 @@ jobs:
       - run: cargo test -- --test-threads=1
         env:
           DATABASE_URL: postgres://postgres:quest@localhost:5432/quest_test
-
