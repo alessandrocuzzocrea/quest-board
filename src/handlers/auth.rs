@@ -183,7 +183,7 @@ const LOGIN_PAGE: &str = concat!(
     r##"<meta name="viewport" content="width=device-width, initial-scale=1">"##,
     r##"<title>quest-board — Login</title>"##,
     r##"<link rel="stylesheet" href="/css/style.css">"##,
-    r##"<script src="https://unpkg.com/htmx.org@2"></script>"##,
+    r##"<script src="/js/htmx.min.js"></script>"##,
     r##"</head>"##,
     r##"<body>"##,
     r##"<div class="auth-page">"##,
