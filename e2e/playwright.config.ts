@@ -10,7 +10,8 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: '../target/release/quest-board',
+    command: 'target/release/quest-board',
+    cwd: '../',
     timeout: 60000,
     reuseExistingServer: !process.env.CI,
     url: 'http://localhost:3001/api/v1/health',
