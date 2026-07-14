@@ -18,24 +18,23 @@ docker run -d --name quest-pg \
   postgres:17
 
 # 2. Set up environment
-cp backend/.env.example backend/.env
-# Edit backend/.env and set a random APP_SECRET
+cp .env.example .env
+# Edit .env and set a random APP_SECRET
 
 # 3. Start the backend
-cd backend
 cargo run
 # API at http://localhost:3001
 ```
 
 ## Backend auto-reload with cargo watch
 
-The `cargo dev` alias (defined in `backend/.cargo/config.toml`) runs:
+The `cargo dev` alias (defined in `.cargo/config.toml`) runs:
 
 ```sh
 cargo watch -w src -x run
 ```
 
-This recompiles and restarts the backend whenever a file in `backend/src/` changes.
+This recompiles and restarts the backend whenever a file in `src/` changes.
 Install `cargo-watch` once:
 
 ```sh
@@ -45,13 +44,12 @@ cargo install cargo-watch
 Then:
 
 ```sh
-cd backend && cargo dev
+cargo dev
 ```
 
 ## Production build
 
 ```sh
-cd backend
 DATABASE_URL="..." cargo build --release
 ./target/release/quest-board
 ```
@@ -60,15 +58,15 @@ DATABASE_URL="..." cargo build --release
 
 ```
 quest-board/
-├── backend/           # Rust API
-│   ├── src/
-│   │   ├── main.rs          # server startup + routing
-│   │   ├── db/              # migration runner
-│   │   ├── error.rs         # error types
-│   │   ├── models/          # domain types
-│   │   ├── handlers/        # HTTP handlers (thin — call repos)
-│   │   └── repository/      # data access layer (all SQL here)
-│   └── migrations/          # SQL schema
+├── src/           # Rust API source
+│   ├── main.rs          # server startup + routing
+│   ├── db/              # migration runner
+│   ├── error.rs         # error types
+│   ├── models/          # domain types
+│   ├── handlers/        # HTTP handlers (thin — call repos)
+│   └── repository/      # data access layer (all SQL here)
+├── migrations/          # SQL schema
+├── tests/               # integration tests
 └── .gitignore
 ```
 
