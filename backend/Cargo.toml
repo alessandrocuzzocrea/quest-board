@@ -23,7 +23,7 @@ uuid = { version = "1", features = ["v4", "serde"] }
 ts-rs = { version = "10", features = ["serde-compat", "uuid-impl", "chrono-impl"] }
 sha2 = "0.10"
 base64 = "0.22"
-rand = "0.9"
+rand = "0.10"
 hex = "0.4"
 
 # Auth
