@@ -57,6 +57,10 @@ pub async fn update_card(pool: &sqlx::PgPool, card_id: &Uuid, req: &UpdateCardRe
         sqlx::query("UPDATE cards SET due_date = $1, updated_at = NOW() WHERE id = $2")
             .bind(due_date).bind(card_id).execute(pool).await?;
     }
+    if let Some(start_date) = &req.start_date {
+        sqlx::query("UPDATE cards SET start_date = $1, updated_at = NOW() WHERE id = $2")
+            .bind(start_date).bind(card_id).execute(pool).await?;
+    }
     if let Some(is_due_completed) = req.is_due_completed {
         sqlx::query("UPDATE cards SET is_due_completed = $1, updated_at = NOW() WHERE id = $2")
             .bind(is_due_completed).bind(card_id).execute(pool).await?;
