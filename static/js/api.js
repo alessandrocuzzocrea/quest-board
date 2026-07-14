@@ -28,8 +28,8 @@ const API = (() => {
     del:    (p) => request('DELETE', p),
 
     // Auth
-    login:     (email, password)      => request('POST', '/auth/login', { email, password }),
-    register:  (email, password, name) => request('POST', '/auth/register', { email, password, name }),
+    login:     (username, password)      => request('POST', '/auth/login', { username, password }),
+    register:  (username, password, name) => request('POST', '/auth/register', { username, password, name }),
     logout:    ()                     => request('POST', '/auth/logout'),
     me:        ()                     => request('GET', '/auth/me'),
     updateName: (name)                => request('PUT', '/auth/me', { name }),

@@ -34,12 +34,12 @@ async fn register(
     session: tower_sessions::Session,
     Json(req): Json<RegisterRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    if req.email.is_empty() || req.password.is_empty() || req.name.is_empty() {
-        return Err(AppError::BadRequest("email, password, and name are required".into()));
+    if req.username.is_empty() || req.password.is_empty() || req.name.is_empty() {
+        return Err(AppError::BadRequest("username, password, and name are required".into()));
     }
 
-    if repository::user_repo::find_by_email(&state.db, &req.email).await?.is_some() {
-        return Err(AppError::BadRequest("email already registered".into()));
+    if repository::user_repo::find_by_username(&state.db, &req.username).await?.is_some() {
+        return Err(AppError::BadRequest("username already registered".into()));
     }
 
     let peppered = format!("{}{}", pepper(), req.password);
@@ -48,9 +48,9 @@ async fn register(
         .map_err(|_| AppError::Internal("failed to hash password".into()))?
         .to_string();
 
-    let user = repository::user_repo::create(&state.db, &req.email, &pw_hash, &req.name).await?;
+    let user = repository::user_repo::create(&state.db, &req.username, &pw_hash, &req.name).await?;
     session.insert("user_id", user.id.to_string()).await.map_err(|e| AppError::Internal(e.to_string()))?;
-    Ok(Json(serde_json::json!({"user": {"id": user.id.to_string(), "email": req.email, "name": req.name, "role": "user"}})))
+    Ok(Json(serde_json::json!({"user": {"id": user.id.to_string(), "username": req.username, "name": req.name, "role": "user"}})))
 }
 
 async fn login(
@@ -58,9 +58,9 @@ async fn login(
     session: tower_sessions::Session,
     Json(req): Json<LoginRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let user = repository::user_repo::find_by_email(&state.db, &req.email)
+    let user = repository::user_repo::find_by_username(&state.db, &req.username)
         .await?
-        .ok_or(AppError::Unauthorized("invalid email or password".into()))?;
+        .ok_or(AppError::Unauthorized("invalid username or password".into()))?;
 
     let parsed = PasswordHash::new(&user.password_hash)
         .map_err(|_| AppError::Internal("auth error".into()))?;
@@ -68,7 +68,7 @@ async fn login(
     let peppered = format!("{}{}", pepper(), req.password);
     Argon2::default()
         .verify_password(peppered.as_bytes(), &parsed)
-        .map_err(|_| AppError::Unauthorized("invalid email or password".into()))?;
+        .map_err(|_| AppError::Unauthorized("invalid username or password".into()))?;
 
     session.insert("user_id", &user.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
 
@@ -88,8 +88,7 @@ async fn me(
     let uid = resolve(session, headers, &state.db).await?;
     let user = repository::user_repo::find_by_id(&state.db, &uid)
         .await?
-        .ok_or(AppError::Unauthorized("user not found".into()))?;
-
+        .ok_or(AppError::NotFound("user not found".into()))?;
     Ok(Json(serde_json::json!({"user": UserResponse::from(user)})))
 }
 
@@ -111,11 +110,9 @@ async fn change_password(
     Json(req): Json<ChangePasswordRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let uid = resolve(session, headers, &state.db).await?;
-
-    // Verify old password
     let user = repository::user_repo::find_by_id(&state.db, &uid)
         .await?
-        .ok_or(AppError::Unauthorized("user not found".into()))?;
+        .ok_or(AppError::NotFound("user not found".into()))?;
 
     let parsed = PasswordHash::new(&user.password_hash)
         .map_err(|_| AppError::Internal("auth error".into()))?;
@@ -125,7 +122,6 @@ async fn change_password(
         .verify_password(peppered.as_bytes(), &parsed)
         .map_err(|_| AppError::Unauthorized("invalid password".into()))?;
 
-    // Hash new password
     let new_peppered = format!("{}{}", pepper(), req.new_password);
     let new_hash = Argon2::default()
         .hash_password(new_peppered.as_bytes())
@@ -133,6 +129,5 @@ async fn change_password(
         .to_string();
 
     repository::user_repo::update_password(&state.db, &uid, &new_hash).await?;
-
     Ok(Json(serde_json::json!({"ok": true})))
 }

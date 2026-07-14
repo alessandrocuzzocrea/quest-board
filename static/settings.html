@@ -20,8 +20,8 @@
         <input type="text" id="settings-name" required>
       </div>
       <div class="form-group">
-        <label>Email</label>
-        <input type="email" id="settings-email" disabled style="opacity:.6">
+        <label>Username</label>
+        <input type="text" id="settings-username" disabled style="opacity:.6">
       </div>
       <button type="submit" class="btn btn-primary">Save Changes</button>
     </form>
@@ -32,11 +32,11 @@
     <form onsubmit="return changePassword(event)">
       <div class="form-group">
         <label>Current Password</label>
-        <input type="password" id="pw-current" required>
+        <input type="password" id="settings-current-password" required>
       </div>
       <div class="form-group">
         <label>New Password</label>
-        <input type="password" id="pw-new" required minlength="6">
+        <input type="password" id="settings-new-password" required minlength="6">
       </div>
       <button type="submit" class="btn btn-primary">Update Password</button>
     </form>
@@ -60,72 +60,67 @@ async function init() {
   if (!user) return;
   $('#user-name').textContent = user.name;
   $('#settings-name').value = user.name;
-  $('#settings-email').value = user.email;
+  $('#settings-username').value = user.username;
   loadApiKeys();
 }
 init();
 
 async function updateProfile(e) {
   e.preventDefault();
-  const name = $('#settings-name').value.trim();
-  if (!name) return;
   try {
-    await API.updateName(name);
+    const res = await API.updateName($('#settings-name').value);
+    user = res.user;
+    $('#user-name').textContent = user.name;
     showAlert('Profile updated', 'success');
-  } catch (err) { showAlert(err.message); }
+  } catch (err) {
+    showAlert(err.message);
+  }
 }
 
 async function changePassword(e) {
   e.preventDefault();
-  const current = $('#pw-current').value;
-  const newpw = $('#pw-new').value;
-  if (!current || !newpw) return;
   try {
-    await API.changePassword(current, newpw);
+    await API.changePassword($('#settings-current-password').value, $('#settings-new-password').value);
     showAlert('Password changed', 'success');
-    $('#pw-current').value = '';
-    $('#pw-new').value = '';
-  } catch (err) { showAlert(err.message); }
+    $('#settings-current-password').value = '';
+    $('#settings-new-password').value = '';
+  } catch (err) {
+    showAlert(err.message);
+  }
 }
 
 async function loadApiKeys() {
   try {
     const keys = await API.listApiKeys();
     const list = $('#api-keys-list');
-    if (!keys || keys.length === 0) {
-      list.innerHTML = '<p class="text-sm">No API keys yet.</p>';
-      return;
-    }
-    list.innerHTML = keys.map(k => `
-      <div class="api-key-row">
-        <div>
-          <strong>${esc(k.name)}</strong>
-          <div class="key">${esc(k.key || '')}</div>
-        </div>
-        <button class="btn btn-sm btn-danger" onclick="deleteApiKey('${k.id}')">Revoke</button>
-      </div>
-    `).join('');
-  } catch (err) { showAlert(err.message); }
+    list.innerHTML = keys.length
+      ? keys.map(k => `<div class="api-key-row"><span>${esc(k.name)}</span><code class="key-preview">${esc(k.prefix)}…</code><span class="text-sm">${esc(k.last_used_at ? 'Last used ' + new Date(k.last_used_at).toLocaleDateString() : 'Never used')}</span><button onclick="deleteKey('${k.id}')" class="btn btn-sm btn-danger">Delete</button></div>`).join('')
+      : '<p class="text-sm" style="color:var(--text2)">No API keys yet.</p>';
+  } catch (err) {
+    showAlert(err.message);
+  }
 }
 
 async function createApiKey(e) {
   e.preventDefault();
-  const name = $('#new-key-name').value.trim();
-  if (!name) return;
   try {
-    await API.createApiKey({ name });
+    const res = await API.createApiKey({ name: $('#new-key-name').value });
+    showAlert(`Key created: ${res.key} (copy it now, it won't be shown again)`, 'success');
     $('#new-key-name').value = '';
-    showAlert('API key created', 'success');
     loadApiKeys();
-  } catch (err) { showAlert(err.message); }
+  } catch (err) {
+    showAlert(err.message);
+  }
 }
 
-async function deleteApiKey(id) {
-  if (!confirm('Revoke this API key?')) return;
+async function deleteKey(id) {
+  if (!confirm('Delete this API key?')) return;
   try {
     await API.deleteApiKey(id);
     loadApiKeys();
-  } catch (err) { showAlert(err.message); }
+  } catch (err) {
+    showAlert(err.message);
+  }
 }
 
 function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }

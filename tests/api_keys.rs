@@ -2,11 +2,18 @@ use quest_board::AppState;
 use std::sync::Arc;
 use std::sync::LazyLock;
 use tokio::sync::Mutex;
+use tokio::sync::MutexGuard;
 use tower::ServiceExt;
 
 static SETUP_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
-async fn setup() -> (axum::Router, sqlx::PgPool) {
+struct TestApp {
+    _guard: MutexGuard<'static, ()>,
+    app: axum::Router,
+    _pool: sqlx::PgPool,
+}
+
+async fn setup() -> TestApp {
     let _guard = SETUP_MUTEX.lock().await;
     dotenvy::from_filename(".env.test").ok();
 
@@ -26,17 +33,17 @@ async fn setup() -> (axum::Router, sqlx::PgPool) {
 
     let state = Arc::new(AppState { db: pool.clone(), ai_client: Arc::new(quest_board::handlers::ai::RealLlmClient) });
     let app = quest_board::build_app(pool.clone(), state).await;
-    (app, pool)
+    TestApp { _guard, app, _pool: pool }
 }
 
-async fn register(app: &axum::Router, email: &str) -> (axum::Router, String) {
-    let body = format!(r#"{{"email":"{email}","password":"pass","name":"T"}}"#);
+async fn register(app: &axum::Router, username: &str) -> (axum::Router, String) {
+    let body = format!(r#"{{"username":"{username}","password":"pass","name":"T"}}"#);
     let req = axum::http::Request::builder()
         .method("POST").uri("/api/v1/auth/register")
         .header("content-type", "application/json")
         .body(axum::body::Body::from(body)).unwrap();
     let resp = app.clone().oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), 200, "register {email}");
+    assert_eq!(resp.status(), 200, "register {username}");
     let cookie = resp.headers().get("set-cookie")
         .and_then(|v| v.to_str().ok())
         .map(|s| s.split(';').next().unwrap_or("").to_string())
@@ -72,19 +79,20 @@ fn bearer_request(method: &str, uri: &str, token: &str) -> axum::http::Request<a
 
 async fn body(resp: axum::http::Response<axum::body::Body>) -> serde_json::Value {
     let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
-    serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null)
+    serde_json::from_slice(&bytes).unwrap()
 }
 
 #[tokio::test]
 async fn test_create_api_key_requires_auth() {
-    let (app, _pool) = setup().await;
-    let resp = app.oneshot(json_request("POST", "/api/v1/api-keys", r#"{"name":"test"}"#, None)).await.unwrap();
-    assert_eq!(resp.status(), 401, "unauthenticated should be 401");
+    let ta = setup().await;
+    let resp = ta.app.clone().oneshot(json_request("POST", "/api/v1/api-keys", r#"{"name":"test"}"#, None)).await.unwrap();
+    assert_eq!(resp.status(), 401);
 }
 
 #[tokio::test]
 async fn test_create_and_use_api_key() {
-    let (app, cookie) = register(&setup().await.0, "key-test@test.com").await;
+    let ta = setup().await;
+    let (app, cookie) = register(&ta.app, "key-test").await;
 
     // Create key
     let resp = app.clone().oneshot(json_request("POST", "/api/v1/api-keys", r#"{"name":"my-token"}"#, Some(&cookie))).await.unwrap();
@@ -123,14 +131,15 @@ async fn test_create_and_use_api_key() {
 
 #[tokio::test]
 async fn test_invalid_bearer_token_rejected() {
-    let (app, _pool) = setup().await;
-    let resp = app.oneshot(bearer_request("GET", "/api/v1/api-keys", "qb_invalidtoken123")).await.unwrap();
+    let ta = setup().await;
+    let resp = ta.app.clone().oneshot(bearer_request("GET", "/api/v1/api-keys", "qb_invalidtoken123")).await.unwrap();
     assert_eq!(resp.status(), 401, "invalid token rejected");
 }
 
 #[tokio::test]
 async fn test_delete_api_key() {
-    let (app, cookie) = register(&setup().await.0, "delete-key@test.com").await;
+    let ta = setup().await;
+    let (app, cookie) = register(&ta.app, "delete-key").await;
 
     // Create
     let resp = app.clone().oneshot(json_request("POST", "/api/v1/api-keys", r#"{"name":"delete-me"}"#, Some(&cookie))).await.unwrap();
@@ -155,7 +164,8 @@ async fn test_delete_api_key() {
 
 #[tokio::test]
 async fn test_multiple_api_keys_per_user() {
-    let (app, cookie) = register(&setup().await.0, "multi-key@test.com").await;
+    let ta = setup().await;
+    let (app, cookie) = register(&ta.app, "multi-key").await;
 
     for name in ["ci", "dev", "prod"] {
         let resp = app.clone().oneshot(json_request("POST", "/api/v1/api-keys", &format!(r#"{{"name":"{name}"}}"#), Some(&cookie))).await.unwrap();

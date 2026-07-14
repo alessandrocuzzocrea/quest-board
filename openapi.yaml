@@ -23,7 +23,7 @@ paths:
         "200":
           description: User registered successfully
         "400":
-          description: Invalid input or email already registered
+          description: Invalid input or username already registered
 
   /auth/login:
     post:
@@ -865,13 +865,13 @@ components:
     RegisterRequest:
       type: object
       properties:
-        email: { type: string }
+        username: { type: string }
         password: { type: string }
         name: { type: string }
     LoginRequest:
       type: object
       properties:
-        email: { type: string }
+        username: { type: string }
         password: { type: string }
     CreateBoardRequest:
       type: object

@@ -12,6 +12,7 @@ pub async fn run_migrations(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
         include_str!("../../migrations/001_initial.sql"),
         include_str!("../../migrations/002_native_uuids.sql"),
         include_str!("../../migrations/003_api_keys.sql"),
+        include_str!("../../migrations/004_email_to_username.sql"),
     ] {
         for statement in sql.split(';') {
             let stmt = statement.trim();
@@ -34,7 +35,7 @@ async fn seed_admin(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
         .to_string();
 
     sqlx::query(
-    "INSERT INTO users (email, password_hash, name, role) VALUES ($1, $2, $3, 'admin') ON CONFLICT (email) DO NOTHING",
+    "INSERT INTO users (username, password_hash, name, role) VALUES ($1, $2, $3, 'admin') ON CONFLICT (username) DO NOTHING",
     )
     .bind("admin")
     .bind(&hash)

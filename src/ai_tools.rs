@@ -151,10 +151,22 @@ async fn execute_get_board_lists(args: &serde_json::Value, pool: &PgPool) -> Too
 
 #[cfg(test)]
 mod tests {
+use std::sync::LazyLock;
+use tokio::sync::Mutex;
+use tokio::sync::MutexGuard;
+static AI_TOOLS_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
     use super::*;
     use sqlx::Row;
 
-    async fn setup_pool() -> (sqlx::PgPool, Uuid) {
+    struct TestDb {
+        _guard: MutexGuard<'static, ()>,
+        pool: sqlx::PgPool,
+        uid: Uuid,
+    }
+
+    async fn setup_pool() -> TestDb {
+        let _guard = AI_TOOLS_MUTEX.lock().await;
         dotenvy::from_filename(".env.test").ok();
         let db = std::env::var("DATABASE_URL").unwrap_or_else(|_| "postgres://postgres:quest@localhost:5432/quest_test".into());
         let pool = sqlx::PgPool::connect(&db).await.unwrap();
@@ -164,40 +176,40 @@ mod tests {
 
         let uid = Uuid::new_v4();
         let now = chrono::Utc::now().to_rfc3339();
-        sqlx::query("INSERT INTO users (id,email,password_hash,name,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6)")
-            .bind(uid).bind("t@t.com").bind("hash").bind("T").bind(&now).bind(&now)
+        sqlx::query("INSERT INTO users (id,username,password_hash,name,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6)")
+            .bind(uid).bind("t").bind("hash").bind("T").bind(&now).bind(&now)
             .execute(&pool).await.unwrap();
-        (pool, uid)
+        TestDb { _guard, pool, uid }
     }
 
     #[tokio::test]
     async fn test_create_card_tool() {
-        let (pool, uid) = setup_pool().await;
+        let td = setup_pool().await;
         let row = sqlx::query("INSERT INTO boards(name,created_by)VALUES($1,$2)RETURNING id")
-            .bind("Board").bind(uid).fetch_one(&pool).await.unwrap();
+            .bind("Board").bind(td.uid).fetch_one(&td.pool).await.unwrap();
         let bid: Uuid = row.get("id");
         sqlx::query("INSERT INTO lists(board_id,name,position,list_type)VALUES($1,$2,$3,$4)")
             .bind(bid).bind("To Do").bind(0.0).bind("active")
-            .execute(&pool).await.unwrap();
+            .execute(&td.pool).await.unwrap();
         let list: (String,) = sqlx::query_as("SELECT id::text FROM lists WHERE board_id=$1 ORDER BY position LIMIT 1")
-            .bind(bid).fetch_one(&pool).await.unwrap();
+            .bind(bid).fetch_one(&td.pool).await.unwrap();
 
-        let result = execute_tool("create_card", &json!({"list_id": list.0, "name": "AI Card"}), &uid, &pool).await;
+        let result = execute_tool("create_card", &json!({"list_id": list.0, "name": "AI Card"}), &td.uid, &td.pool).await;
         assert!(result.success, "create_card failed: {:?}", result.data);
         assert_eq!(result.data["name"], "AI Card");
     }
 
     #[tokio::test]
     async fn test_create_card_missing_name() {
-        let (pool, uid) = setup_pool().await;
-        let result = execute_tool("create_card", &json!({"list_id": Uuid::new_v4().to_string()}), &uid, &pool).await;
+        let td = setup_pool().await;
+        let result = execute_tool("create_card", &json!({"list_id": Uuid::new_v4().to_string()}), &td.uid, &td.pool).await;
         assert!(!result.success);
     }
 
     #[tokio::test]
     async fn test_unknown_tool() {
-        let (pool, uid) = setup_pool().await;
-        let result = execute_tool("nonexistent", &json!({}), &uid, &pool).await;
+        let td = setup_pool().await;
+        let result = execute_tool("nonexistent", &json!({}), &td.uid, &td.pool).await;
         assert!(!result.success);
     }
 }
