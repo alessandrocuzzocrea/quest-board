@@ -155,6 +155,8 @@ function renderKanban() {
             ${c.description ? `<div class="desc">${esc(c.description)}</div>` : ''}
             ${c.labels && c.labels.length ? `<div class="labels">${c.labels.map(l => `<span class="label-dot" style="background:${l.color || '#4f8cff'}"></span>`).join('')}</div>` : ''}
             <div class="meta-row">
+              ${c.start_date ? `<span class="date-badge date-start">&#128197; ${esc(c.start_date)}</span>` : ''}
+              ${c.due_date ? `<span class="date-badge ${c.due_date.match(/^\d{4}-\d{2}-\d{2}$/) && c.due_date < new Date().toISOString().slice(0,10) && !c.is_due_completed ? 'date-overdue' : 'date-due'}">&#128197; ${esc(c.due_date)}${c.is_due_completed ? ' &#10003;' : ''}</span>` : ''}
               ${c.comment_count ? `<span>&#128172; ${c.comment_count}</span>` : ''}
               ${c.checklist_total ? `<span>&#9744; ${c.checklist_done || 0}/${c.checklist_total}</span>` : ''}
             </div>

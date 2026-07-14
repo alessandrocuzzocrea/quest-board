@@ -351,6 +351,9 @@ async fn test_board_html_contains_kanban_and_modals() {
     assert!(html.contains("showLabelsPicker"), "board.html: sidebar missing showLabelsPicker");
     assert!(html.contains("archiveCard"), "board.html: sidebar missing archiveCard");
     assert!(html.contains("deleteCardFromPanel"), "board.html: sidebar missing deleteCardFromPanel");
+    // Due/start date display on kanban cards
+    assert!(html.contains("c.due_date"), "board.html: renderKanban must render due_date on cards");
+    assert!(html.contains("c.start_date"), "board.html: renderKanban must render start_date on cards");
 }
 
 #[tokio::test]
@@ -422,6 +425,11 @@ async fn test_css_contains_required_styles() {
     assert!(css.contains("task-progress-bar"), "CSS must define task progress bar");
     assert!(css.contains("sidebar-btn"), "CSS must define sidebar buttons");
     assert!(css.contains("comment-tabs"), "CSS must define comment tabs");
+    // Kanban card date badges
+    assert!(css.contains("date-badge"), "CSS must define date-badge styles");
+    assert!(css.contains("date-start"), "CSS must define date-start style");
+    assert!(css.contains("date-due"), "CSS must define date-due style");
+    assert!(css.contains("date-overdue"), "CSS must define date-overdue style");
 
     // Responsive
     assert!(css.contains("@media"), "CSS must have responsive rules");
