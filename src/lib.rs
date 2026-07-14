@@ -7,6 +7,11 @@ pub mod models;
 pub mod repository;
 pub mod slug;
 pub mod session;
+use axum::routing::get;
+use axum::{
+    middleware,
+    response::{IntoResponse, Redirect},
+};
 use tower_http::services::fs::ServeDir;
 
 use std::sync::Arc;
@@ -19,12 +24,39 @@ pub struct AppState {
     pub ai_client: Arc<dyn handlers::ai::LlmClient>,
 }
 
+async fn require_auth_for_html(
+    request: axum::http::Request<axum::body::Body>,
+    next: middleware::Next,
+) -> axum::response::Response {
+
+    let req_path = request.uri().path().to_string();
+    if !req_path.ends_with(".html") || req_path == "/login" {
+        return next.run(request).await;
+    }
+
+    // Check session for user_id
+    let session = request.extensions()
+        .get::<tower_sessions::Session>()
+        .cloned();
+
+    match session {
+        Some(session) => {
+            match session.get::<String>("user_id").await {
+                Ok(Some(_)) => next.run(request).await,
+                _ => Redirect::to("/login").into_response(),
+            }
+        }
+        None => Redirect::to("/login").into_response(),
+    }
+}
+
 pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router {
     let session_store = PgSessionStore::new(pool);
     let session_layer = tower_sessions::SessionManagerLayer::new(session_store)
         .with_secure(false)
         .with_same_site(SameSite::Lax);
 
+    let app_state = state.clone();
     let api = axum::Router::new()
         .nest("/auth", handlers::auth::router())
         .nest("/boards", handlers::board::router())
@@ -42,12 +74,13 @@ pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router
         .layer(tower_http::cors::CorsLayer::permissive())
         .with_state(state);
 
-    let static_files = ServeDir::new("static").not_found_service(
-        tower_http::services::fs::ServeFile::new("static/index.html"),
-    );
+    let static_files = ServeDir::new("static");
 
     axum::Router::new()
+        .route("/login", get(handlers::auth::htmx_login_page).post(handlers::auth::htmx_login))
         .nest("/api/v1", api)
         .fallback_service(static_files)
+        .layer(middleware::from_fn(require_auth_for_html))
         .layer(session_layer)
+        .with_state(app_state)
 }

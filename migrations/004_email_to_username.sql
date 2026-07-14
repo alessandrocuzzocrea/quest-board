@@ -1,14 +1,9 @@
--- Replace email with username as the user login identifier
+-- Replace email with username as the user login identifier.
+-- Fully idempotent — safe to re-run every startup.
 
--- Add username column
-ALTER TABLE users ADD COLUMN username TEXT;
-
--- Backfill: copy email as username
-UPDATE users SET username = email;
-
--- Make username NOT NULL UNIQUE
+ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
 ALTER TABLE users ALTER COLUMN username SET NOT NULL;
-ALTER TABLE users ADD CONSTRAINT users_username_key UNIQUE (username);
+ALTER TABLE users DROP COLUMN IF EXISTS email;
 
--- Drop email column
-ALTER TABLE users DROP COLUMN email;
+-- Add unique constraint on username (replaces the removed UNIQUE on email)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username);
