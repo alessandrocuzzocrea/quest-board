@@ -10,10 +10,14 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'DATABASE_URL=postgres://postgres:quest@localhost:5432/quest_test APP_SECRET=test-secret-for-e2e ../target/release/quest-board',
+    command: '../target/release/quest-board',
     port: 3001,
-    timeout: 30000,
+    timeout: 60000,
     reuseExistingServer: !process.env.CI,
-    cwd: __dirname,
+    url: 'http://localhost:3001/api/v1/health',
+    env: {
+      DATABASE_URL: process.env.DATABASE_URL || 'postgres://postgres:quest@localhost:5432/quest_test',
+      APP_SECRET: process.env.APP_SECRET || 'test-secret-for-e2e',
+    },
   },
 });
