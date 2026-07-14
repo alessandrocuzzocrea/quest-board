@@ -10,9 +10,7 @@
     "gen:types": "cd ../backend && TS_RS_EXPORT_DIR=../frontend/src/lib/types/bindings cargo test --lib -- --skip ai_tools 2>&1",
     "lint:openapi": "npx @redocly/cli lint --config ../.redocly.yaml ../openapi.yaml",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "test:watch": "vitest"
   },
   "overrides": {
     "cookie": "0.7.0"
@@ -22,13 +20,7 @@
   "license": "ISC",
   "type": "module",
   "devDependencies": {
-    "@chromatic-com/storybook": "^5.2.1",
     "@redocly/cli": "^2.38.0",
-    "@storybook/addon-a11y": "^10.5.0",
-    "@storybook/addon-docs": "^10.5.0",
-    "@storybook/addon-svelte-csf": "^5.1.2",
-    "@storybook/addon-vitest": "^10.5.0",
-    "@storybook/sveltekit": "^10.5.0",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.69.2",
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
@@ -40,7 +32,6 @@
     "concurrently": "^10.0.3",
     "jsdom": "^29.1.1",
     "playwright": "^1.61.1",
-    "storybook": "^10.5.0",
     "svelte": "^5.56.4",
     "svelte-check": "^4.7.2",
     "vite": "^8.1.4",
