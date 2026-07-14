@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boards — quest-board</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="/js/api.js"></script>
+<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body>
+<div id="nav"></div>
+<div class="page">
+  <div class="flex items-center justify-between mb-16">
+    <h1>Boards</h1>
+    <button class="btn btn-primary" onclick="showCreateBoard()">+ New Board</button>
+  </div>
+
+  <div class="search-bar mb-16" style="max-width:400px">
+    <span class="icon">&#128269;</span>
+    <input type="search" placeholder="Filter boards..." id="search-input"
+           hx-trigger="keyup changed delay:300ms" hx-target="#board-grid" hx-swap="innerHTML">
+  </div>
+
+  <div id="board-grid" class="board-grid">
+    <div class="text-center" style="grid-column:1/-1;padding:48px"><div class="spinner"></div></div>
+  </div>
+</div>
+
+<!-- Create board modal -->
+<div class="modal-overlay" id="create-modal">
+  <div class="modal">
+    <h2>New Board</h2>
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" id="new-board-name" placeholder="My Board" required>
+    </div>
+    <div class="form-group">
+      <label>Slug (URL)</label>
+      <input type="text" id="new-board-slug" placeholder="my-board">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('create-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createBoard()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirmation modal -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal">
+    <h2>Delete Board</h2>
+    <p>Are you sure you want to delete <strong id="delete-board-name"></strong>? This cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('delete-modal')">Cancel</button>
+      <button class="btn btn-danger" id="delete-confirm-btn" onclick="deleteBoard()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let boards = [];
+let deleteTarget = null;
+
+async function init() {
+  const user = await requireAuth();
+  if (!user) return;
+  $('#user-name').textContent = user.name;
+  boards = await API.listBoards();
+  renderBoards(boards);
+}
+init();
+
+function renderBoards(list) {
+  const grid = $('#board-grid');
+  if (!list || list.length === 0) {
+    grid.innerHTML = '<div class="empty-state"><div class="icon">&#128203;</div><p>No boards yet. Create one!</p></div>';
+    return;
+  }
+  grid.innerHTML = list.map(b => `
+    <div class="board-card" onclick="openBoard('${b.id}')">
+      <div class="actions" onclick="event.stopPropagation()">
+        <button class="btn btn-sm btn-icon" onclick="confirmDelete('${b.id}','${b.name.replace(/'/g,"\\'")}')" title="Delete">&#128465;</button>
+      </div>
+      <h3>${esc(b.name)}</h3>
+      <div class="meta">${b.slug ? '/' + esc(b.slug) : ''}</div>
+    </div>
+  `).join('');
+}
+
+// HTMX-powered search filtering
+document.body.addEventListener('htmx:afterOnLoad', function(evt) {
+  // Not used for JSON API; we handle filtering locally
+});
+
+$('#search-input').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  if (!q) { renderBoards(boards); return; }
+  const filtered = boards.filter(b => b.name.toLowerCase().includes(q) || (b.slug && b.slug.includes(q)));
+  renderBoards(filtered);
+});
+
+function openBoard(id) { window.location.href = `/board.html?id=${id}`; }
+
+function showCreateBoard() { openModal('create-modal'); $('#new-board-name').focus(); }
+
+async function createBoard() {
+  const name = $('#new-board-name').value.trim();
+  if (!name) return showAlert('Name is required');
+  const slug = $('#new-board-slug').value.trim() || undefined;
+  try {
+    const b = await API.createBoard({ name, slug });
+    closeModal('create-modal');
+    $('#new-board-name').value = '';
+    $('#new-board-slug').value = '';
+    boards.push(b);
+    renderBoards(boards);
+  } catch (err) { showAlert(err.message); }
+}
+
+function confirmDelete(id, name) {
+  deleteTarget = id;
+  $('#delete-board-name').textContent = name;
+  openModal('delete-modal');
+}
+
+async function deleteBoard() {
+  if (!deleteTarget) return;
+  try {
+    await API.deleteBoard(deleteTarget);
+    boards = boards.filter(b => b.id !== deleteTarget);
+    renderBoards(boards);
+    closeModal('delete-modal');
+    deleteTarget = null;
+  } catch (err) { showAlert(err.message); }
+}
+
+function openModal(id) { $(`#${id}`).classList.add('open'); }
+function closeModal(id) { $(`#${id}`).classList.remove('open'); }
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+</script>
+</body>
+</html>

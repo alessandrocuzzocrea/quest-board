@@ -1,6 +1,5 @@
 /target
 .DS_Store
-*.swp
 openapi.json
 .env
 node_modules/

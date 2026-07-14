@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board — quest-board</title>
+<link rel="stylesheet" href="/css/style.css">
+<script src="/js/api.js"></script>
+</head>
+<body>
+<div id="nav"></div>
+<div class="page-wide">
+  <div class="board-header">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 id="board-title">Loading...</h1>
+        <span class="slug" id="board-slug"></span>
+      </div>
+      <div class="flex gap-8">
+        <button class="btn" onclick="window.location.href='/boards.html'">&larr; Boards</button>
+        <button class="btn btn-danger" id="delete-board-btn" onclick="deleteBoard()">Delete Board</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="kanban" id="kanban"></div>
+</div>
+
+<!-- Card detail panel -->
+<div class="overlay" id="panel-overlay" onclick="closePanel()"></div>
+<div class="panel" id="card-panel">
+  <div class="panel-header">
+    <div>
+      <h2 id="panel-title">Card</h2>
+      <span class="text-sm" id="panel-list-name"></span>
+    </div>
+    <button class="btn btn-sm btn-icon" onclick="closePanel()">&times;</button>
+  </div>
+  <div class="panel-body" id="panel-body"></div>
+</div>
+
+<!-- Add card modal -->
+<div class="modal-overlay" id="add-card-modal">
+  <div class="modal">
+    <h2>Add Card</h2>
+    <div class="form-group">
+      <label>Title</label>
+      <input type="text" id="new-card-title" placeholder="Card title" required>
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea id="new-card-desc" placeholder="Optional description"></textarea>
+    </div>
+    <input type="hidden" id="new-card-list-id">
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('add-card-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createCard()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add list modal -->
+<div class="modal-overlay" id="add-list-modal">
+  <div class="modal">
+    <h2>Add List</h2>
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" id="new-list-name" placeholder="To Do" required>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('add-list-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createList()">Add</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let board = null;
+let lists = [];
+let boardId = null;
+let dragCard = null;
+
+async function init() {
+  const user = await requireAuth();
+  if (!user) return;
+  const params = new URLSearchParams(location.search);
+  boardId = params.get('id');
+  if (!boardId) { window.location.href = '/boards.html'; return; }
+  $('#user-name').textContent = user.name;
+  await loadBoard();
+}
+init();
+
+async function loadBoard() {
+  try {
+    board = await API.getBoard(boardId);
+    $('#board-title').textContent = board.board.name;
+    $('#board-slug').textContent = board.board.slug ? '/' + board.board.slug : '';
+    lists = board.lists || [];
+    renderKanban();
+  } catch (err) {
+    showAlert('Failed to load board: ' + err.message);
+  }
+}
+
+function renderKanban() {
+  const kanban = $('#kanban');
+  if (!lists || lists.length === 0) {
+    kanban.innerHTML = `<div class="kanban"><div class="empty-state"><div class="icon">&#128196;</div><p>No lists. Add one!</p></div></div>`;
+    kanban.innerHTML += `<div style="margin-top:16px"><button class="btn btn-primary" onclick="showAddList()">+ Add List</button></div>`;
+    return;
+  }
+
+  kanban.innerHTML = lists.map(list => `
+    <div class="column" data-list-id="${list.id}">
+      <div class="column-header">
+        <span>${esc(list.name)} <span class="count">(${(list.cards || []).length})</span></span>
+        <button class="btn btn-sm btn-icon" onclick="deleteList('${list.id}')" title="Delete list">&times;</button>
+      </div>
+      <div class="column-body" data-list-id="${list.id}"
+           ondragover="onDragOver(event)" ondrop="onDrop(event)" ondragleave="onDragLeave(event)">
+        ${(list.cards || []).map(c => `
+          <div class="kanban-card" draggable="true"
+               data-card-id="${c.id}" data-list-id="${list.id}"
+               ondragstart="onDragStart(event)" ondragend="onDragEnd(event)"
+               onclick="openCard('${c.id}')">
+            <h4>${esc(c.name)}</h4>
+            ${c.description ? `<div class="desc">${esc(c.description)}</div>` : ''}
+            ${c.labels && c.labels.length ? `<div class="labels">${c.labels.map(l => `<span class="label-dot" style="background:${l.color || '#4f8cff'}"></span>`).join('')}</div>` : ''}
+            <div class="meta-row">
+              ${c.comment_count ? `<span>&#128172; ${c.comment_count}</span>` : ''}
+              ${c.checklist_total ? `<span>&#9744; ${c.checklist_done || 0}/${c.checklist_total}</span>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="column-footer">
+        <button class="btn btn-sm" style="width:100%" onclick="showAddCard('${list.id}')">+ Add Card</button>
+      </div>
+    </div>
+  `).join('') + `
+    <div class="column" style="min-width:200px;border:2px dashed var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="showAddList()">
+      <span style="color:var(--text2)">+ Add List</span>
+    </div>
+  `;
+}
+
+// Drag and drop
+function onDragStart(e) {
+  dragCard = { id: e.target.dataset.cardId, listId: e.target.dataset.listId };
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', e.target.dataset.cardId);
+}
+
+function onDragEnd(e) {
+  e.target.classList.remove('dragging');
+  $$('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  dragCard = null;
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const col = e.currentTarget;
+  if (!col.classList.contains('drag-over')) col.classList.add('drag-over');
+}
+
+function onDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+async function onDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const targetListId = e.currentTarget.dataset.listId;
+  if (!dragCard || dragCard.listId === targetListId) return;
+  try {
+    await API.moveCard(dragCard.id, { list_id: targetListId });
+    await loadBoard();
+  } catch (err) { showAlert(err.message); }
+}
+
+// Card detail panel
+async function openCard(cardId) {
+  try {
+    const data = await API.getCard(cardId);
+    renderPanel(data);
+    $('#card-panel').classList.add('open');
+    $('#panel-overlay').classList.add('open');
+  } catch (err) { showAlert(err.message); }
+}
+
+function closePanel() {
+  $('#card-panel').classList.remove('open');
+  $('#panel-overlay').classList.remove('open');
+}
+
+function renderPanel(card) {
+  $('#panel-title').textContent = card.name;
+  const listName = lists.find(l => l.id === card.list_id)?.name || '';
+  $('#panel-list-name').textContent = listName;
+
+  const body = $('#panel-body');
+  body.innerHTML = `
+    <div class="panel-section">
+      <h3>Description</h3>
+      <p>${card.description ? esc(card.description) : '<span class="text-sm">No description</span>'}</p>
+    </div>
+    ${card.labels && card.labels.length ? `
+    <div class="panel-section">
+      <h3>Labels</h3>
+      <div class="flex gap-8" style="flex-wrap:wrap">
+        ${card.labels.map(l => `<span class="label-badge" style="background:${l.color || '#4f8cff'}20;color:${l.color || '#4f8cff'};border:1px solid ${l.color || '#4f8cff'}">${esc(l.name)}</span>`).join('')}
+      </div>
+    </div>` : ''}
+    ${card.checklists && card.checklists.length ? `
+    <div class="panel-section">
+      <h3>Checklists</h3>
+      ${card.checklists.map(cl => `
+        <div style="margin-bottom:8px">
+          <strong class="text-sm">${esc(cl.name)}</strong>
+          ${cl.tasks && cl.tasks.length ? cl.tasks.map(t => `
+            <div class="checklist-item">
+              <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTask('${t.id}', this.checked)">
+              <span style="${t.done ? 'text-decoration:line-through;color:var(--text2)' : ''}">${esc(t.name)}</span>
+            </div>
+          `).join('') : '<span class="text-sm">No tasks</span>'}
+        </div>
+      `).join('')}
+    </div>` : ''}
+    ${card.comments && card.comments.length ? `
+    <div class="panel-section">
+      <h3>Comments (${card.comments.length})</h3>
+      ${card.comments.map(c => `
+        <div class="comment">
+          <span class="author">${esc(c.user?.name || 'Unknown')}</span>
+          <span class="time">${new Date(c.created_at).toLocaleDateString()}</span>
+          <div class="text">${esc(c.text)}</div>
+        </div>
+      `).join('')}
+    </div>` : ''}
+    <div class="panel-section">
+      <h3>Add Comment</h3>
+      <form onsubmit="return addComment(event, '${card.id}')">
+        <textarea id="comment-text" placeholder="Write a comment..." required style="margin-bottom:8px"></textarea>
+        <button type="submit" class="btn btn-primary btn-sm">Comment</button>
+      </form>
+    </div>
+    <div class="panel-section" style="border-top:1px solid var(--border);padding-top:16px">
+      <button class="btn btn-sm btn-danger" onclick="deleteCardFromPanel('${card.id}')">Delete Card</button>
+    </div>
+  `;
+}
+
+async function addComment(e, cardId) {
+  e.preventDefault();
+  const text = $('#comment-text').value.trim();
+  if (!text) return;
+  try {
+    await API.createComment({ card_id: cardId, text });
+    $('#comment-text').value = '';
+    await openCard(cardId); // refresh panel
+  } catch (err) { showAlert(err.message); }
+}
+
+async function deleteCardFromPanel(cardId) {
+  if (!confirm('Delete this card?')) return;
+  try {
+    await API.deleteCard(cardId);
+    closePanel();
+    await loadBoard();
+  } catch (err) { showAlert(err.message); }
+}
+
+async function toggleTask(taskId, done) {
+  // We'd need a dedicated endpoint; for now just visual feedback
+  // The API PUT /cards/:id can update the card but not individual tasks
+  console.log('Toggle task', taskId, done);
+}
+
+// Add card
+function showAddCard(listId) {
+  $('#new-card-list-id').value = listId;
+  $('#new-card-title').value = '';
+  $('#new-card-desc').value = '';
+  openModal('add-card-modal');
+  $('#new-card-title').focus();
+}
+
+async function createCard() {
+  const name = $('#new-card-title').value.trim();
+  if (!name) return;
+  const listId = $('#new-card-list-id').value;
+  try {
+    await API.createCard({ list_id: listId, name, description: $('#new-card-desc').value.trim() || undefined });
+    closeModal('add-card-modal');
+    await loadBoard();
+  } catch (err) { showAlert(err.message); }
+}
+
+// Add list
+function showAddList() {
+  $('#new-list-name').value = '';
+  openModal('add-list-modal');
+  $('#new-list-name').focus();
+}
+
+async function createList() {
+  const name = $('#new-list-name').value.trim();
+  if (!name) return;
+  try {
+    await API.createList({ board_id: boardId, name });
+    closeModal('add-list-modal');
+    await loadBoard();
+  } catch (err) { showAlert(err.message); }
+}
+
+async function deleteList(listId) {
+  if (!confirm('Delete this list and all its cards?')) return;
+  // No dedicated endpoint visible — we'd need PUT /boards/:id or similar
+  // The board update PUT might handle this
+  // For now, show alert that this isn't supported directly
+  showAlert('Delete list not directly supported via API', 'info');
+}
+
+async function deleteBoard() {
+  if (!confirm('Delete this entire board? This cannot be undone.')) return;
+  try {
+    await API.deleteBoard(boardId);
+    window.location.href = '/boards.html';
+  } catch (err) { showAlert(err.message); }
+}
+
+function openModal(id) { $(`#${id}`).classList.add('open'); }
+function closeModal(id) { $(`#${id}`).classList.remove('open'); }
+function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+</script>
+</body>
+</html>
