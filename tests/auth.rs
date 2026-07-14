@@ -2,12 +2,19 @@ use quest_board::AppState;
 use std::sync::Arc;
 use std::sync::LazyLock;
 use tokio::sync::Mutex;
+use tokio::sync::MutexGuard;
 use tower::ServiceExt;
 
 static SETUP_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
-async fn setup() -> (axum::Router, sqlx::PgPool) {
-    let _guard = SETUP_MUTEX.lock().await;
+struct TestApp {
+    _guard: MutexGuard<'static, ()>,
+    app: axum::Router,
+    _pool: sqlx::PgPool,
+}
+
+async fn setup() -> TestApp {
+    let guard = SETUP_MUTEX.lock().await;
 
     dotenvy::from_filename(".env.test").ok();
 
@@ -35,7 +42,7 @@ async fn setup() -> (axum::Router, sqlx::PgPool) {
     let state = Arc::new(AppState { db: pool.clone(), ai_client: Arc::new(quest_board::handlers::ai::RealLlmClient) });
     let app = quest_board::build_app(pool.clone(), state).await;
 
-    (app, pool)
+    TestApp { _guard: guard, app, _pool: pool }
 }
 
 async fn register(app: &axum::Router) -> String {
@@ -44,7 +51,7 @@ async fn register(app: &axum::Router) -> String {
         .uri("/api/v1/auth/register")
         .header("content-type", "application/json")
         .body(axum::body::Body::from(
-            r#"{"email":"test@test.com","password":"secret","name":"Test User"}"#,
+            r#"{"username":"testuser","password":"secret","name":"Test User"}"#,
         ))
         .unwrap();
 
@@ -61,18 +68,18 @@ async fn register(app: &axum::Router) -> String {
 
 #[tokio::test]
 async fn test_register_and_login() {
-    let (app, _pool) = setup().await;
+    let ta = setup().await;
 
     let req = axum::http::Request::builder()
         .method("POST")
         .uri("/api/v1/auth/register")
         .header("content-type", "application/json")
         .body(axum::body::Body::from(
-            r#"{"email":"test@test.com","password":"secret","name":"Test User"}"#,
+            r#"{"username":"testuser","password":"secret","name":"Test User"}"#,
         ))
         .unwrap();
 
-    let resp = app.oneshot(req).await.unwrap();
+    let resp = ta.app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 200);
 
     let body: serde_json::Value = serde_json::from_slice(
@@ -81,41 +88,41 @@ async fn test_register_and_login() {
             .unwrap(),
     )
     .unwrap();
-    assert_eq!(body["user"]["email"], "test@test.com");
+    assert_eq!(body["user"]["username"], "testuser");
     assert_eq!(body["user"]["name"], "Test User");
 }
 
 #[tokio::test]
 async fn test_login_with_wrong_password() {
-    let (app, _pool) = setup().await;
+    let ta = setup().await;
 
     let req = axum::http::Request::builder()
         .method("POST")
         .uri("/api/v1/auth/login")
         .header("content-type", "application/json")
         .body(axum::body::Body::from(
-            r#"{"email":"nobody@test.com","password":"wrong"}"#,
+            r#"{"username":"nobody","password":"wrong"}"#,
         ))
         .unwrap();
 
-    let resp = app.oneshot(req).await.unwrap();
+    let resp = ta.app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 401);
 }
 
 #[tokio::test]
 async fn test_register_then_me() {
-    let (app, _pool) = setup().await;
+    let ta = setup().await;
 
     let req = axum::http::Request::builder()
         .method("POST")
         .uri("/api/v1/auth/register")
         .header("content-type", "application/json")
         .body(axum::body::Body::from(
-            r#"{"email":"me@test.com","password":"pass","name":"Me"}"#,
+            r#"{"username":"me","password":"pass","name":"Me"}"#,
         ))
         .unwrap();
 
-    let resp = app.clone().oneshot(req).await.unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 200);
 
     let cookie = resp
@@ -132,7 +139,7 @@ async fn test_register_then_me() {
         .body(axum::body::Body::empty())
         .unwrap();
 
-    let resp = app.oneshot(req).await.unwrap();
+    let resp = ta.app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 200);
 
     let body: serde_json::Value = serde_json::from_slice(
@@ -141,23 +148,23 @@ async fn test_register_then_me() {
             .unwrap(),
     )
     .unwrap();
-    assert_eq!(body["user"]["email"], "me@test.com");
+    assert_eq!(body["user"]["username"], "me");
 }
 
 #[tokio::test]
 async fn test_seeded_admin_login() {
-    let (app, _pool) = setup().await;
+    let ta = setup().await;
 
     let req = axum::http::Request::builder()
         .method("POST")
         .uri("/api/v1/auth/login")
         .header("content-type", "application/json")
         .body(axum::body::Body::from(
-            r#"{"email":"admin","password":"admin"}"#,
+            r#"{"username":"admin","password":"admin"}"#,
         ))
         .unwrap();
 
-    let resp = app.oneshot(req).await.unwrap();
+    let resp = ta.app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 200);
 
     let body: serde_json::Value = serde_json::from_slice(
@@ -166,7 +173,7 @@ async fn test_seeded_admin_login() {
             .unwrap(),
     )
     .unwrap();
-    assert_eq!(body["user"]["email"], "admin");
+    assert_eq!(body["user"]["username"], "admin");
     assert_eq!(body["user"]["role"], "admin");
 }
 
@@ -174,136 +181,101 @@ async fn test_seeded_admin_login() {
 
 #[tokio::test]
 async fn test_update_name_requires_auth() {
-    let (app, _pool) = setup().await;
-
+    let ta = setup().await;
     let req = axum::http::Request::builder()
-        .method("PUT")
-        .uri("/api/v1/auth/me")
+        .method("PUT").uri("/api/v1/auth/me")
         .header("content-type", "application/json")
-        .body(axum::body::Body::from(r#"{"name":"New Name"}"#))
-        .unwrap();
-
-    let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), 401, "unauthenticated update should be rejected");
+        .body(axum::body::Body::from(r#"{"name":"New"}"#)).unwrap();
+    let resp = ta.app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 401);
 }
 
 #[tokio::test]
 async fn test_update_name() {
-    let (app, _pool) = setup().await;
-    let cookie = register(&app).await;
+    let ta = setup().await;
+    let cookie = register(&ta.app).await;
 
     // Update name
     let req = axum::http::Request::builder()
-        .method("PUT")
-        .uri("/api/v1/auth/me")
+        .method("PUT").uri("/api/v1/auth/me")
         .header("content-type", "application/json")
         .header("cookie", &cookie)
-        .body(axum::body::Body::from(r#"{"name":"Updated Name"}"#))
-        .unwrap();
-
-    let resp = app.clone().oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), 200, "update name should succeed");
-
+        .body(axum::body::Body::from(r#"{"name":"NewName"}"#)).unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200);
     let body: serde_json::Value = serde_json::from_slice(
-        &axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap(),
-    )
-    .unwrap();
-    assert_eq!(body["user"]["name"], "Updated Name");
+        &axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap()
+    ).unwrap();
+    assert_eq!(body["user"]["name"], "NewName");
 
-    // Verify via /auth/me
+    // Verify via me endpoint
     let req = axum::http::Request::builder()
-        .method("GET")
-        .uri("/api/v1/auth/me")
+        .method("GET").uri("/api/v1/auth/me")
         .header("cookie", &cookie)
-        .body(axum::body::Body::empty())
-        .unwrap();
-
-    let resp = app.clone().oneshot(req).await.unwrap();
+        .body(axum::body::Body::empty()).unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
     let body: serde_json::Value = serde_json::from_slice(
-        &axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap(),
-    )
-    .unwrap();
-    assert_eq!(body["user"]["name"], "Updated Name");
+        &axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap()
+    ).unwrap();
+    assert_eq!(body["user"]["name"], "NewName");
 }
 
 #[tokio::test]
 async fn test_change_password() {
-    let (app, _pool) = setup().await;
-    let cookie = register(&app).await;
+    let ta = setup().await;
+    let cookie = register(&ta.app).await;
 
     // Change password
     let req = axum::http::Request::builder()
-        .method("PUT")
-        .uri("/api/v1/auth/me/password")
+        .method("PUT").uri("/api/v1/auth/me/password")
         .header("content-type", "application/json")
         .header("cookie", &cookie)
-        .body(axum::body::Body::from(
-            r#"{"old_password":"secret","new_password":"new-secret"}"#,
-        ))
-        .unwrap();
+        .body(axum::body::Body::from(r#"{"old_password":"secret","new_password":"new-secret"}"#)).unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200);
 
-    let resp = app.clone().oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), 200, "change password should succeed");
-
-    // Login with new password
+    // Verify login with new password
     let req = axum::http::Request::builder()
-        .method("POST")
-        .uri("/api/v1/auth/login")
+        .method("POST").uri("/api/v1/auth/login")
         .header("content-type", "application/json")
         .body(axum::body::Body::from(
-            r#"{"email":"test@test.com","password":"new-secret"}"#,
-        ))
-        .unwrap();
+            r#"{"username":"testuser","password":"new-secret"}"#,
+        )).unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200);
 
-    let resp = app.clone().oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), 200, "should login with new password");
-
-    // Old password should no longer work
+    // Old password should fail
     let req = axum::http::Request::builder()
-        .method("POST")
-        .uri("/api/v1/auth/login")
+        .method("POST").uri("/api/v1/auth/login")
         .header("content-type", "application/json")
         .body(axum::body::Body::from(
-            r#"{"email":"test@test.com","password":"secret"}"#,
-        ))
-        .unwrap();
-
-    let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), 401, "old password should be rejected");
+            r#"{"username":"testuser","password":"secret"}"#,
+        )).unwrap();
+    let resp = ta.app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 401);
 }
 
 #[tokio::test]
 async fn test_change_password_wrong_old_password() {
-    let (app, _pool) = setup().await;
-    let cookie = register(&app).await;
+    let ta = setup().await;
+    let cookie = register(&ta.app).await;
 
     let req = axum::http::Request::builder()
-        .method("PUT")
-        .uri("/api/v1/auth/me/password")
+        .method("PUT").uri("/api/v1/auth/me/password")
         .header("content-type", "application/json")
         .header("cookie", &cookie)
-        .body(axum::body::Body::from(
-            r#"{"old_password":"wrong-old","new_password":"new-secret"}"#,
-        ))
-        .unwrap();
-
-    let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), 401, "wrong old password should be rejected");
+        .body(axum::body::Body::from(r#"{"old_password":"wrong","new_password":"new-secret"}"#)).unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 401);
 }
 
 #[tokio::test]
 async fn test_change_password_requires_auth() {
-    let (app, _pool) = setup().await;
-
+    let ta = setup().await;
     let req = axum::http::Request::builder()
-        .method("PUT")
-        .uri("/api/v1/auth/me/password")
+        .method("PUT").uri("/api/v1/auth/me/password")
         .header("content-type", "application/json")
-        .body(axum::body::Body::from(
-            r#"{"old_password":"secret","new_password":"new"}"#,
-        ))
-        .unwrap();
-
-    let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), 401, "unauthenticated password change should be rejected");
+        .body(axum::body::Body::from(r#"{"old_password":"x","new_password":"y"}"#)).unwrap();
+    let resp = ta.app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 401);
 }
