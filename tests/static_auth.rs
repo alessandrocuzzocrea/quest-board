@@ -35,7 +35,8 @@ async fn setup() -> TestApp {
         .await
         .expect("failed to run migrations");
 
-    let state = Arc::new(AppState { db: pool.clone(), ai_client: Arc::new(quest_board::handlers::ai::RealLlmClient) });
+    let (event_tx, _) = quest_board::events::channel();
+    let state = Arc::new(AppState { db: pool.clone(), ai_client: Arc::new(quest_board::handlers::ai::RealLlmClient), event_tx });
     let app = quest_board::build_app(pool.clone(), state).await;
 
     TestApp { _guard: guard, app, _pool: pool }
@@ -358,6 +359,8 @@ async fn test_board_html_contains_kanban_and_modals() {
     assert!(html.contains("renderGantt"), "board.html: must have renderGantt function");
     assert!(html.contains("gantt-chart"), "board.html: must have gantt-chart container");
     assert!(html.contains("view-toggle"), "board.html: must have view toggle buttons");
+    // Real-time SSE
+    assert!(html.contains("EventSource"), "board.html: must have SSE EventSource connection");
 }
 
 #[tokio::test]

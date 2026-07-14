@@ -536,6 +536,7 @@ checksum = "8b147ee9d1f6d097cef9ce628cd2ee62288d963e16fb287bd9286455b241382d"
 dependencies = [
  "futures-channel",
  "futures-core",
+ "futures-executor",
  "futures-io",
  "futures-sink",
  "futures-task",
@@ -615,6 +616,7 @@ version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "389ca41296e6190b48053de0321d02a77f32f8a5d2461dd38762c0593805c6d6"
 dependencies = [
+ "futures-channel",
  "futures-core",
  "futures-io",
  "futures-macro",
@@ -1296,6 +1298,7 @@ dependencies = [
  "chrono",
  "dirs",
  "dotenvy",
+ "futures",
  "hex",
  "password-hash",
  "rand 0.9.4",
@@ -1307,6 +1310,7 @@ dependencies = [
  "sqlx",
  "time",
  "tokio",
+ "tokio-stream",
  "tower",
  "tower-http 0.7.0",
  "tower-sessions",
@@ -2155,6 +2159,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]

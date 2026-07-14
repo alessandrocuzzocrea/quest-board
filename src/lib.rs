@@ -7,6 +7,7 @@ pub mod models;
 pub mod repository;
 pub mod slug;
 pub mod session;
+pub mod events;
 use axum::routing::get;
 use axum::{
     middleware,
@@ -22,6 +23,7 @@ use session::PgSessionStore;
 pub struct AppState {
     pub db: sqlx::PgPool,
     pub ai_client: Arc<dyn handlers::ai::LlmClient>,
+    pub event_tx: tokio::sync::broadcast::Sender<events::SseEvent>,
 }
 
 // Known app pages that require authentication (both clean and .html forms)
@@ -110,6 +112,7 @@ pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router
         .nest("/api-keys", handlers::api_key::router())
         .nest("/ai", handlers::ai::router())
         .nest("/users", handlers::user_router())
+        .nest("/events", axum::Router::new().route("/", get(events::event_stream)))
         .layer(tower_http::cors::CorsLayer::permissive())
         .with_state(state);
 

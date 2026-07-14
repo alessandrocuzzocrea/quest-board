@@ -50,6 +50,10 @@ async fn create_comment(
         serde_json::json!({"comment": {"text": &req.text}}),
     ).await?;
 
+    // Emit event (no board_id available here without extra query)
+    crate::events::emit_simple(&state.event_tx, "comment_created", "",
+        Some(&req.card_id.to_string()), None, &uid.to_string());
+
     Ok(Json(serde_json::json!(comment)))
 }
 
@@ -60,9 +64,11 @@ async fn update_comment(
     Path(comment_id): Path<String>,
     Json(req): Json<UpdateCommentRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let _uid = user_id(&session).await?;
+    let uid = user_id(&session).await?;
     let comment_id: uuid::Uuid = comment_id.parse().map_err(|_| AppError::BadRequest("invalid comment id".into()))?;
     let comment = repository::comment_repo::update_text(&state.db, &comment_id, &req.text).await?;
+    crate::events::emit_simple(&state.event_tx, "comment_updated", "",
+        Some(&comment.card_id.to_string()), None, &uid.to_string());
     Ok(Json(serde_json::json!(comment)))
 }
 
@@ -71,8 +77,13 @@ async fn delete_comment(
     session: tower_sessions::Session,
     Path(comment_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let _uid = user_id(&session).await?;
+    let uid = user_id(&session).await?;
     let comment_id: uuid::Uuid = comment_id.parse().map_err(|_| AppError::BadRequest("invalid comment id".into()))?;
+    // Fetch comment for card_id before deletion
+    let comment = repository::comment_repo::get_by_id(&state.db, &comment_id).await.unwrap();
+    let card_id = comment.as_ref().map(|c| c.card_id.to_string()).unwrap_or_default();
     repository::comment_repo::delete(&state.db, &comment_id).await?;
+    crate::events::emit_simple(&state.event_tx, "comment_deleted", "",
+        Some(&card_id), None, &uid.to_string());
     Ok(Json(serde_json::json!({"ok": true})))
 }
