@@ -11,7 +11,6 @@ export default defineConfig({
   },
   webServer: {
     command: '../target/release/quest-board',
-    port: 3001,
     timeout: 60000,
     reuseExistingServer: !process.env.CI,
     url: 'http://localhost:3001/api/v1/health',
