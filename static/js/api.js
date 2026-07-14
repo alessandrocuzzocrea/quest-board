@@ -38,6 +38,7 @@ const API = (() => {
     // Boards
     listBoards:  ()          => request('GET', '/boards'),
     getBoard:    (id)        => request('GET', `/boards/${id}`),
+    getBoardBySlug: (slug)  => request('GET', `/boards/by-slug/${slug}`),
     createBoard: (data)      => request('POST', '/boards', data),
     updateBoard: (id, data)  => request('PUT', `/boards/${id}`, data),
     deleteBoard: (id)        => request('DELETE', `/boards/${id}`),

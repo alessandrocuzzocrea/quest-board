@@ -1,6 +1,6 @@
 use base64::Engine;
-use rand::rngs::OsRng;
-use rand::TryRngCore;
+use rand::rngs::SysRng;
+use rand::TryRng;
 use sha2::Digest;
 use crate::error::AppError;
 
@@ -12,7 +12,7 @@ use crate::error::AppError;
 /// Token hash: SHA-256 of the full token string, hex-encoded.
 pub fn generate_api_key() -> (String, String, String) {
     let mut bytes = [0u8; 32];
-    OsRng.try_fill_bytes(&mut bytes).expect("OsRng failed");
+    SysRng.try_fill_bytes(&mut bytes).expect("SysRng failed");
 
     let encoded =
         base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&bytes);

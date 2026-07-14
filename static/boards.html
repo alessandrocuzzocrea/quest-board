@@ -79,7 +79,7 @@ function renderBoards(list) {
     return;
   }
   grid.innerHTML = list.map(b => `
-    <div class="board-card" onclick="openBoard('${b.id}')">
+    <div class="board-card" onclick="openBoard('${b.slug}','${esc(b.name).replace(/'/g,"\\'")}')">
       <div class="actions" onclick="event.stopPropagation()">
         <button class="btn btn-sm btn-icon" onclick="confirmDelete('${b.id}','${b.name.replace(/'/g,"\\'")}')" title="Delete">&#128465;</button>
       </div>
@@ -101,7 +101,10 @@ $('#search-input').addEventListener('input', function() {
   renderBoards(filtered);
 });
 
-function openBoard(id) { window.location.href = `/board?id=${id}`; }
+function openBoard(slug, name) {
+  const namePart = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'board';
+  window.location.href = `/board/${slug}/${namePart}`;
+}
 
 function showCreateBoard() { openModal('create-modal'); $('#new-board-name').focus(); }
 
