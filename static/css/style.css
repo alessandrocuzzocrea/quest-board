@@ -92,7 +92,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 /* Forms */
 .form-group { margin-bottom: 16px; }
 .form-group label { display: block; margin-bottom: 4px; color: var(--text2); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
-input[type="text"], input[type="email"], input[type="password"], input[type="search"], textarea, select {
+input[type="text"], input[type="password"], input[type="search"], textarea, select {
     width: 100%;
     padding: 10px 12px;
     background: var(--bg2);

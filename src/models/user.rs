@@ -7,7 +7,7 @@ use ts_rs::TS;
 #[ts(export)]
 pub struct User {
     pub id: Uuid,
-    pub email: String,
+    pub username: String,
     #[serde(skip_serializing)]
     #[ts(skip)]
     pub password_hash: String,
@@ -20,7 +20,7 @@ pub struct User {
 #[derive(Debug, Deserialize, TS)]
 #[ts(export)]
 pub struct RegisterRequest {
-    pub email: String,
+    pub username: String,
     pub password: String,
     pub name: String,
 }
@@ -28,7 +28,7 @@ pub struct RegisterRequest {
 #[derive(Debug, Deserialize, TS)]
 #[ts(export)]
 pub struct LoginRequest {
-    pub email: String,
+    pub username: String,
     pub password: String,
 }
 
@@ -50,7 +50,7 @@ pub struct ChangePasswordRequest {
 #[ts(export)]
 pub struct UserResponse {
     pub id: Uuid,
-    pub email: String,
+    pub username: String,
     pub name: String,
     pub role: String,
 }
@@ -59,7 +59,7 @@ impl From<User> for UserResponse {
     fn from(u: User) -> Self {
         UserResponse {
             id: u.id,
-            email: u.email,
+            username: u.username,
             name: u.name,
             role: u.role,
         }
