@@ -78,6 +78,17 @@ async fn page_settings() -> impl IntoResponse {
     Html(include_str!("../static/settings.html"))
 }
 
+// ── Root path handler ────────────────────────────────────────────────
+
+async fn root_handler(
+    session: tower_sessions::Session,
+) -> impl IntoResponse {
+    match session.get::<String>("user_id").await {
+        Ok(Some(_)) => Redirect::to("/boards"),
+        _ => Redirect::to("/login"),
+    }
+}
+
 pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router {
     let session_store = PgSessionStore::new(pool);
     let session_layer = tower_sessions::SessionManagerLayer::new(session_store)
@@ -106,6 +117,7 @@ pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router
 
     axum::Router::new()
         .route("/login", get(handlers::auth::htmx_login_page).post(handlers::auth::htmx_login))
+        .route("/", get(root_handler))
         .route("/boards", get(page_boards))
         .route("/board", get(page_board))
         .route("/settings", get(page_settings))
