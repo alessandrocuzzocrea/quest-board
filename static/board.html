@@ -26,17 +26,18 @@
   <div class="kanban" id="kanban"></div>
 </div>
 
-<!-- Card detail panel -->
-<div class="overlay" id="panel-overlay" onclick="closePanel()"></div>
-<div class="panel" id="card-panel">
-  <div class="panel-header">
-    <div>
-      <h2 id="panel-title">Card</h2>
-      <span class="text-sm" id="panel-list-name"></span>
+<!-- Card detail modal -->
+<div class="modal-overlay" id="card-modal" onclick="if(event.target===this)closePanel()">
+  <div class="modal modal-card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+      <div>
+        <h2 id="panel-title" style="font-size:18px;margin:0 0 2px">Card</h2>
+        <span class="text-sm" id="panel-list-name"></span>
+      </div>
+      <button class="btn btn-sm btn-icon" onclick="closePanel()">&times;</button>
     </div>
-    <button class="btn btn-sm btn-icon" onclick="closePanel()">&times;</button>
+    <div id="panel-body"></div>
   </div>
-  <div class="panel-body" id="panel-body"></div>
 </div>
 
 <!-- Add card modal -->
@@ -182,19 +183,17 @@ async function onDrop(e) {
   } catch (err) { showAlert(err.message); }
 }
 
-// Card detail panel
+// Card detail modal
 async function openCard(cardId) {
   try {
     const data = await API.getCard(cardId);
     renderPanel(data);
-    $('#card-panel').classList.add('open');
-    $('#panel-overlay').classList.add('open');
+    openModal('card-modal');
   } catch (err) { showAlert(err.message); }
 }
 
 function closePanel() {
-  $('#card-panel').classList.remove('open');
-  $('#panel-overlay').classList.remove('open');
+  closeModal('card-modal');
 }
 
 function renderPanel(card) {
