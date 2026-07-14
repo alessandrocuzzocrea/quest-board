@@ -44,7 +44,6 @@ async fn main() {
             let creds = quest_board::cli::load_credentials().unwrap_or(None);
             quest_board::cli::run_status(&backend_url, creds.as_ref()).await
         }
-        // Any unrecognized command shows help
         other => {
             if other != "default" {
                 eprintln!("Unknown command: {other}\n");
@@ -57,5 +56,19 @@ async fn main() {
     match result {
         Ok(output) => println!("{output}"),
         Err(e) => eprintln!("Error: {e}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_usage_contains_commands() {
+        assert!(USAGE.contains("login"));
+        assert!(USAGE.contains("logout"));
+        assert!(USAGE.contains("status"));
+        assert!(USAGE.contains("help"));
+        assert!(USAGE.contains("QB_URL"));
     }
 }
