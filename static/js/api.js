@@ -11,8 +11,8 @@ const API = (() => {
     if (body !== undefined) opts.body = JSON.stringify(body);
     const res = await fetch(`${BASE}${path}`, opts);
     if (res.status === 401) {
-      if (!window.location.pathname.includes('index.html')) {
-        window.location.href = '/index.html';
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
       }
       throw new Error('Unauthorized');
     }
@@ -112,7 +112,7 @@ async function checkAuth() {
 
 async function requireAuth() {
   const user = await checkAuth();
-  if (!user) { window.location.href = '/index.html'; return null; }
+  if (!user) { window.location.href = '/login'; return null; }
   return user;
 }
 
@@ -126,7 +126,7 @@ function navBar(currentPage) {
     el('nav', {},
       ...pages.map(p => el('a', { href: p.href, style: p.href === currentPage ? 'color: var(--accent)' : '' }, p.label)),
       el('span', { className: 'user-name', id: 'user-name' }),
-      el('button', { className: 'btn btn-sm', onClick: async () => { await API.logout(); window.location.href = '/index.html'; } }, 'Logout'),
+      el('button', { className: 'btn btn-sm', onClick: async () => { await API.logout(); window.location.href = '/login'; } }, 'Logout'),
     ),
   );
   return nav;
