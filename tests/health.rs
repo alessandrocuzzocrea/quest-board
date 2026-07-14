@@ -23,9 +23,11 @@ async fn setup() -> TestApp {
     sqlx::query("GRANT ALL ON SCHEMA public TO postgres").execute(&pool).await.ok();
     sqlx::query("GRANT ALL ON SCHEMA public TO public").execute(&pool).await.ok();
     quest_board::db::run_migrations(&pool).await.unwrap();
+    let (event_tx, _) = quest_board::events::channel();
     let state = Arc::new(AppState {
         db: pool.clone(),
         ai_client: Arc::new(quest_board::handlers::ai::RealLlmClient),
+        event_tx,
     });
     let app = quest_board::build_app(pool.clone(), state).await;
     TestApp { _guard, app }
