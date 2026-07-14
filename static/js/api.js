@@ -56,8 +56,14 @@ const API = (() => {
     addCardLabel:  (id, data)  => request('POST', `/cards/${id}/labels`, data),
     removeCardLabel: (id, data) => request('DELETE', `/cards/${id}/labels`, data),
     addTaskList:   (id, data)  => request('POST', `/cards/${id}/task-lists`, data),
-
-    // Comments
+    updateTaskList: (id, tlId, data) => request('PUT', `/cards/${id}/task-lists/${tlId}`, data),
+    deleteTaskList: (id, tlId) => request('DELETE', `/cards/${id}/task-lists/${tlId}`),
+    createTask:    (id, tlId, data) => request('POST', `/cards/${id}/task-lists/${tlId}/tasks`, data),
+    updateTask:    (id, tlId, taskId, data) => request('PUT', `/cards/${id}/task-lists/${tlId}/tasks/${taskId}`, data),
+    deleteTask:    (id, tlId, taskId) => request('DELETE', `/cards/${id}/task-lists/${tlId}/tasks/${taskId}`),
+    listComments:  (id)         => request('GET', `/cards/${id}/comments`),
+    listActions:   (id)         => request('GET', `/cards/${id}/actions`),
+    listBoardLabels: (boardId)  => request('GET', `/labels/board/${boardId}`),
     createComment: (data) => request('POST', '/comments', data),
 
     // Labels

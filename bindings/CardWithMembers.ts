@@ -3,4 +3,4 @@ import type { Label } from "./Label";
 import type { TaskListWithTasks } from "./TaskListWithTasks";
 import type { UserResponse } from "./UserResponse";
 
-export type CardWithMembers = { id: string, board_id: string, list_id: string, position: number, name: string, description: string | null, due_date: string | null, is_due_completed: boolean, is_closed: boolean, created_by: string, members: Array<UserResponse>, labels: Array<Label>, comments_count: bigint, checklists: Array<TaskListWithTasks>, created_at: string, updated_at: string, };
+export type CardWithMembers = { id: string, board_id: string, list_id: string, position: number, name: string, description: string | null, start_date: string | null, due_date: string | null, is_due_completed: boolean, is_closed: boolean, created_by: string, members: Array<UserResponse>, labels: Array<Label>, comments_count: bigint, checklists: Array<TaskListWithTasks>, created_at: string, updated_at: string, };

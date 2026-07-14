@@ -184,6 +184,7 @@ pub async fn get_full_board(
                 position: card.position,
                 name: card.name,
                 description: card.description,
+                start_date: card.start_date,
                 due_date: card.due_date,
                 is_due_completed: card.is_due_completed,
                 is_closed: card.is_closed,
