@@ -184,6 +184,10 @@ textarea { resize: vertical; min-height: 80px; }
 .kanban-card .labels { display: flex; gap: 4px; flex-wrap: wrap; margin: 6px 0; }
 .label-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .kanban-card .meta-row { display: flex; gap: 8px; font-size: 11px; color: var(--text2); margin-top: 6px; }
+.kanban-card .date-badge { font-size: 10px; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
+.kanban-card .date-start { background: rgba(79,140,255,.12); color: var(--accent); }
+.kanban-card .date-due { background: rgba(255,152,0,.12); color: #e65100; }
+.kanban-card .date-overdue { background: rgba(231,76,60,.15); color: var(--red); font-weight: 600; }
 .dragging { opacity: .5; }
 .drag-over { border-color: var(--accent); background: var(--bg3); }
 
