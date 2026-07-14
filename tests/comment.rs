@@ -96,3 +96,142 @@ async fn test_create_and_list_comment() {
     ).unwrap();
     assert_eq!(comment["text"], "Hello");
 }
+
+// ── Helper functions ──────────────────────────────────────────
+
+async fn register(app: &axum::Router) -> String {
+    let req = axum::http::Request::builder()
+        .method("POST").uri("/api/v1/auth/register")
+        .header("content-type", "application/json")
+        .body(axum::body::Body::from(r#"{"username":"cu","password":"p","name":"CommentUser"}"#)).unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200);
+    resp.headers().get("set-cookie").and_then(|v| v.to_str().ok())
+        .map(|s| s.split(';').next().unwrap_or("").to_string()).unwrap()
+}
+
+async fn create_board(app: &axum::Router, cookie: &str) -> String {
+    let req = axum::http::Request::builder()
+        .method("POST").uri("/api/v1/boards")
+        .header("content-type", "application/json").header("cookie", cookie)
+        .body(axum::body::Body::from(r#"{"name":"Comment Board"}"#)).unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200);
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    v["id"].as_str().unwrap().to_string()
+}
+
+async fn create_list(app: &axum::Router, cookie: &str, board_id: &str) -> String {
+    let body = format!(r#"{{"board_id":"{board_id}","name":"List"}}"#);
+    let req = axum::http::Request::builder()
+        .method("POST").uri("/api/v1/lists")
+        .header("content-type", "application/json").header("cookie", cookie)
+        .body(axum::body::Body::from(body)).unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200);
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    v["id"].as_str().unwrap().to_string()
+}
+
+async fn create_card(app: &axum::Router, cookie: &str, list_id: &str) -> String {
+    let body = format!(r#"{{"list_id":"{list_id}","name":"Card"}}"#);
+    let req = axum::http::Request::builder()
+        .method("POST").uri("/api/v1/cards")
+        .header("content-type", "application/json").header("cookie", cookie)
+        .body(axum::body::Body::from(body)).unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200);
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    v["id"].as_str().unwrap().to_string()
+}
+
+async fn create_comment(app: &axum::Router, cookie: &str, card_id: &str, text: &str) -> serde_json::Value {
+    let body = format!(r#"{{"card_id":"{card_id}","text":"{text}"}}"#);
+    let req = axum::http::Request::builder()
+        .method("POST").uri("/api/v1/comments")
+        .header("content-type", "application/json").header("cookie", cookie)
+        .body(axum::body::Body::from(body)).unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200);
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    serde_json::from_slice(&bytes).unwrap()
+}
+
+// ── Update / Delete tests ─────────────────────────────────────
+
+#[tokio::test]
+async fn test_update_comment() {
+    let ta = setup().await;
+    let cookie = register(&ta.app).await;
+    let board_id = create_board(&ta.app, &cookie).await;
+    let list_id = create_list(&ta.app, &cookie, &board_id).await;
+    let card_id = create_card(&ta.app, &cookie, &list_id).await;
+    let comment = create_comment(&ta.app, &cookie, &card_id, "Original text").await;
+    let comment_id = comment["id"].as_str().unwrap().to_string();
+    assert_eq!(comment["text"].as_str(), Some("Original text"));
+
+    // Update the comment text
+    let body = r#"{"text":"Updated text"}"#;
+    let req = axum::http::Request::builder()
+        .method("PUT").uri(&format!("/api/v1/comments/{comment_id}"))
+        .header("content-type", "application/json").header("cookie", &cookie)
+        .body(axum::body::Body::from(body)).unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200);
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let updated: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(updated["text"].as_str(), Some("Updated text"));
+}
+
+#[tokio::test]
+async fn test_update_comment_requires_auth() {
+    let ta = setup().await;
+    let req = axum::http::Request::builder()
+        .method("PUT").uri("/api/v1/comments/00000000-0000-0000-0000-000000000000")
+        .header("content-type", "application/json")
+        .body(axum::body::Body::from(r#"{"text":"x"}"#)).unwrap();
+    let resp = ta.app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 401);
+}
+
+#[tokio::test]
+async fn test_delete_comment() {
+    let ta = setup().await;
+    let cookie = register(&ta.app).await;
+    let board_id = create_board(&ta.app, &cookie).await;
+    let list_id = create_list(&ta.app, &cookie, &board_id).await;
+    let card_id = create_card(&ta.app, &cookie, &list_id).await;
+    let comment = create_comment(&ta.app, &cookie, &card_id, "To delete").await;
+    let comment_id = comment["id"].as_str().unwrap().to_string();
+
+    // Delete
+    let req = axum::http::Request::builder()
+        .method("DELETE").uri(&format!("/api/v1/comments/{comment_id}"))
+        .header("cookie", &cookie)
+        .body(axum::body::Body::empty()).unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200);
+
+    // Verify via GET /cards/{card_id}/comments
+    let req = axum::http::Request::builder()
+        .method("GET").uri(&format!("/api/v1/cards/{card_id}/comments"))
+        .header("cookie", &cookie)
+        .body(axum::body::Body::empty()).unwrap();
+    let resp = ta.app.oneshot(req).await.unwrap();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let list: Vec<serde_json::Value> = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(list.len(), 0, "comment should be deleted");
+}
+
+#[tokio::test]
+async fn test_delete_comment_requires_auth() {
+    let ta = setup().await;
+    let req = axum::http::Request::builder()
+        .method("DELETE").uri("/api/v1/comments/00000000-0000-0000-0000-000000000000")
+        .body(axum::body::Body::empty()).unwrap();
+    let resp = ta.app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 401);
+}
