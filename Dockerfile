@@ -10,7 +10,6 @@ RUN touch src/main.rs && cargo build --release
 FROM debian:bookworm-slim
 RUN apt-get update -qq && apt-get install -y -qq ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/target/release/quest-board /usr/local/bin/
-COPY backend/static /app/static
 EXPOSE 3001
 ENV DATABASE_URL=postgres://postgres:quest@localhost:5432/quest
 WORKDIR /app
