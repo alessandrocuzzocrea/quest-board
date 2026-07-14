@@ -17,6 +17,10 @@
         <span class="slug" id="board-slug"></span>
       </div>
       <div class="flex gap-8">
+        <div class="view-toggle" id="view-toggle">
+          <button class="btn btn-sm view-btn active" data-view="kanban" onclick="switchView('kanban')">Kanban</button>
+          <button class="btn btn-sm view-btn" data-view="gantt" onclick="switchView('gantt')">Gantt</button>
+        </div>
         <button class="btn" onclick="window.location.href='/boards'">&larr; Boards</button>
         <button class="btn btn-danger" id="delete-board-btn" onclick="deleteBoard()">Delete Board</button>
       </div>
@@ -118,6 +122,34 @@ async function init() {
 }
 init();
 
+// ---- Real-time SSE connection ----
+let sseTimer = null;
+function connectSSE() {
+  const es = new EventSource('/api/v1/events');
+  es.addEventListener('change', (e) => {
+    try {
+      const ev = JSON.parse(e.data);
+      // Only reload if event is for the current board
+      if (ev.board_id && ev.board_id !== boardId) return;
+      if (!ev.board_id && !ev.card_id) return; // skip events without board context
+      // Debounce: reload at most once per second
+      if (sseTimer) clearTimeout(sseTimer);
+      sseTimer = setTimeout(() => {
+        if (currentView === 'gantt') {
+          loadBoard().then(() => { if (currentView === 'gantt') renderGantt(); });
+        } else {
+          loadBoard();
+        }
+      }, 1000);
+    } catch (_) {}
+  });
+  es.onerror = () => {
+    // EventSource auto-reconnects; just log
+    console.warn('SSE connection lost, reconnecting...');
+  };
+}
+connectSSE();
+
 async function loadBoard() {
   try {
     board = await API.getBoard(boardId);
@@ -128,6 +160,117 @@ async function loadBoard() {
   } catch (err) {
     showAlert('Failed to load board: ' + err.message);
   }
+}
+
+// ---- View toggle ----
+let currentView = 'kanban';
+
+function switchView(view) {
+  currentView = view;
+  $$('.view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  if (view === 'gantt') renderGantt();
+  else renderKanban();
+}
+
+// ---- Gantt chart ----
+function renderGantt() {
+  const container = $('#kanban');
+  if (!lists || lists.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>No cards to show on Gantt chart.</p></div>';
+    return;
+  }
+
+  const allCards = [];
+  for (const list of lists) {
+    for (const c of (list.cards || [])) {
+      allCards.push({ ...c, listName: list.name });
+    }
+  }
+
+  const datedCards = allCards.filter(c => c.due_date || c.start_date);
+  const today = new Date();
+
+  let minDate = null, maxDate = null;
+  for (const c of datedCards) {
+    for (const key of ['start_date', 'due_date']) {
+      if (c[key]) {
+        const d = new Date(c[key]);
+        if (!isNaN(d.getTime())) {
+          if (!minDate || d < minDate) minDate = d;
+          if (!maxDate || d > maxDate) maxDate = d;
+        }
+      }
+    }
+  }
+
+  if (!minDate) minDate = new Date(today);
+  if (!maxDate) maxDate = new Date(today);
+  minDate.setDate(minDate.getDate() - 7);
+  maxDate.setDate(maxDate.getDate() + 21);
+
+  const totalDays = Math.max(1, Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)));
+
+  function dateToPct(d) {
+    const diff = (d - minDate) / (1000 * 60 * 60 * 24);
+    return Math.max(0, Math.min(100, (diff / totalDays) * 100));
+  }
+
+  let html = '<div class="gantt-chart">';
+
+  html += '<div class="gantt-timeline">';
+  for (let i = 0; i <= totalDays; i += 7) {
+    const d = new Date(minDate);
+    d.setDate(d.getDate() + i);
+    const left = (i / totalDays) * 100;
+    html += `<span class="gantt-tick" style="left:${left}%">${d.toLocaleDateString('en-US', {month:'short', day:'numeric'})}</span>`;
+  }
+  html += '</div>';
+
+  for (const list of lists) {
+    const cards = (list.cards || []).filter(c => c.due_date || c.start_date);
+    const unscheduled = (list.cards || []).filter(c => !c.due_date && !c.start_date);
+    if (cards.length === 0 && unscheduled.length === 0) continue;
+
+    html += `<div class="gantt-list-header">${esc(list.name)}</div>`;
+
+    for (const c of cards) {
+      const start = c.start_date ? new Date(c.start_date) : null;
+      const end = c.due_date ? new Date(c.due_date) : null;
+      const hasStart = start && !isNaN(start.getTime());
+      const hasEnd = end && !isNaN(end.getTime());
+
+      let left = 0, width = 0;
+      if (hasStart && hasEnd) {
+        left = dateToPct(start);
+        const right = dateToPct(end);
+        width = Math.max(2, right - left);
+      } else if (hasStart) {
+        left = dateToPct(start);
+        width = 2;
+      } else if (hasEnd) {
+        left = 0;
+        width = dateToPct(end);
+      }
+
+      const isOverdue = hasEnd && end < today && !c.is_due_completed;
+      html += `<div class="gantt-row" onclick="openCard('${c.id}')">
+        <div class="gantt-label">${esc(c.name)}</div>
+        <div class="gantt-bar-wrap">
+          <div class="gantt-bar ${isOverdue ? 'gantt-overdue' : ''}" style="left:${left}%;width:${width}%"></div>
+        </div>
+      </div>`;
+    }
+
+    for (const c of unscheduled) {
+      html += `<div class="gantt-row" onclick="openCard('${c.id}')">
+        <div class="gantt-label">${esc(c.name)}</div>
+        <div class="gantt-bar-wrap"><span class="text-sm" style="padding:4px 8px">No dates</span></div>
+      </div>`;
+    }
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
 }
 
 function renderKanban() {
@@ -155,6 +298,8 @@ function renderKanban() {
             ${c.description ? `<div class="desc">${esc(c.description)}</div>` : ''}
             ${c.labels && c.labels.length ? `<div class="labels">${c.labels.map(l => `<span class="label-dot" style="background:${l.color || '#4f8cff'}"></span>`).join('')}</div>` : ''}
             <div class="meta-row">
+              ${c.start_date ? `<span class="date-badge date-start">&#128197; ${esc(c.start_date)}</span>` : ''}
+              ${c.due_date ? `<span class="date-badge ${c.due_date.match(/^\d{4}-\d{2}-\d{2}$/) && c.due_date < new Date().toISOString().slice(0,10) && !c.is_due_completed ? 'date-overdue' : 'date-due'}">&#128197; ${esc(c.due_date)}${c.is_due_completed ? ' &#10003;' : ''}</span>` : ''}
               ${c.comment_count ? `<span>&#128172; ${c.comment_count}</span>` : ''}
               ${c.checklist_total ? `<span>&#9744; ${c.checklist_done || 0}/${c.checklist_total}</span>` : ''}
             </div>

@@ -35,7 +35,8 @@ async fn setup() -> TestApp {
         .await
         .expect("failed to run migrations");
 
-    let state = Arc::new(AppState { db: pool.clone(), ai_client: Arc::new(quest_board::handlers::ai::RealLlmClient) });
+    let (event_tx, _) = quest_board::events::channel();
+    let state = Arc::new(AppState { db: pool.clone(), ai_client: Arc::new(quest_board::handlers::ai::RealLlmClient), event_tx });
     let app = quest_board::build_app(pool.clone(), state).await;
 
     TestApp { _guard: guard, app, _pool: pool }
@@ -318,4 +319,166 @@ async fn test_root_redirects_to_boards_when_authed() {
         resp.headers().get("location").and_then(|v| v.to_str().ok()),
         Some("/boards")
     );
+}
+
+// ── HTML content structure tests ───────────────────────────────
+
+#[tokio::test]
+async fn test_board_html_contains_kanban_and_modals() {
+    let ta = setup().await;
+    let cookie = register(&ta.app).await;
+
+    let req = axum::http::Request::builder()
+        .method("GET").uri("/board.html")
+        .header("cookie", &cookie)
+        .body(axum::body::Body::empty()).unwrap();
+    let resp = ta.app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200, "board.html should serve successfully");
+    let ct = resp.headers().get("content-type").and_then(|v| v.to_str().ok()).unwrap_or("").to_string();
+    assert!(ct.contains("text/html"), "board.html should be served as text/html, got: {ct}");
+
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let html = String::from_utf8(body.to_vec()).unwrap();
+
+    assert!(html.contains("kanban"), "board.html: missing kanban element");
+    assert!(html.contains("card-modal"), "board.html: missing card-modal");
+    assert!(html.contains("add-card-modal"), "board.html: missing add-card-modal");
+    assert!(html.contains("add-list-modal"), "board.html: missing add-list-modal");
+    assert!(html.contains("panel-title"), "board.html: missing panel-title");
+    assert!(html.contains("modal-main"), "board.html: missing modal-main");
+    assert!(html.contains("card-modal-sidebar"), "board.html: missing card-modal-sidebar");
+    assert!(html.contains("draggable"), "board.html: kanban cards must be draggable");
+    assert!(html.contains("ondragstart"), "board.html: missing ondragstart handler");
+    assert!(html.contains("showLabelsPicker"), "board.html: sidebar missing showLabelsPicker");
+    assert!(html.contains("archiveCard"), "board.html: sidebar missing archiveCard");
+    assert!(html.contains("deleteCardFromPanel"), "board.html: sidebar missing deleteCardFromPanel");
+    // Due/start date display on kanban cards
+    assert!(html.contains("c.due_date"), "board.html: renderKanban must render due_date on cards");
+    assert!(html.contains("c.start_date"), "board.html: renderKanban must render start_date on cards");
+    // Gantt chart view
+    assert!(html.contains("renderGantt"), "board.html: must have renderGantt function");
+    assert!(html.contains("gantt-chart"), "board.html: must have gantt-chart container");
+    assert!(html.contains("view-toggle"), "board.html: must have view toggle buttons");
+    // Real-time SSE
+    assert!(html.contains("EventSource"), "board.html: must have SSE EventSource connection");
+}
+
+#[tokio::test]
+async fn test_boards_html_contains_grid_and_modals() {
+    let ta = setup().await;
+    let cookie = register(&ta.app).await;
+
+    let req = axum::http::Request::builder()
+        .method("GET").uri("/boards.html")
+        .header("cookie", &cookie)
+        .body(axum::body::Body::empty()).unwrap();
+    let resp = ta.app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200);
+
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let html = String::from_utf8(body.to_vec()).unwrap();
+
+    assert!(html.contains("board-grid"), "boards page must have a board grid");
+    assert!(html.contains("create-modal"), "boards page must have create board modal");
+    assert!(html.contains("delete-modal"), "boards page must have delete confirmation modal");
+    assert!(html.contains("search-bar"), "boards page must have a search bar");
+    assert!(html.contains("+ New Board"), "boards page must have a create button");
+    assert!(html.contains("htmx"), "boards page uses htmx for search");
+}
+
+#[tokio::test]
+async fn test_settings_html_contains_sections() {
+    let ta = setup().await;
+    let cookie = register(&ta.app).await;
+
+    let req = axum::http::Request::builder()
+        .method("GET").uri("/settings.html")
+        .header("cookie", &cookie)
+        .body(axum::body::Body::empty()).unwrap();
+    let resp = ta.app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200);
+
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let html = String::from_utf8(body.to_vec()).unwrap();
+
+    assert!(html.contains("settings-section"), "settings must have section containers");
+    assert!(html.contains("updateProfile"), "settings must have profile update form");
+    assert!(html.contains("changePassword"), "settings must have password change form");
+    assert!(html.contains("api-keys"), "settings must have API keys section");
+}
+
+#[tokio::test]
+async fn test_css_contains_required_styles() {
+    let ta = setup().await;
+
+    let req = axum::http::Request::builder()
+        .method("GET").uri("/css/style.css")
+        .body(axum::body::Body::empty()).unwrap();
+    let resp = ta.app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200);
+
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let css = String::from_utf8(body.to_vec()).unwrap();
+
+    // Core layout
+    assert!(css.contains("kanban"), "CSS must define kanban layout");
+    assert!(css.contains("column"), "CSS must define column styles");
+    assert!(css.contains("modal-overlay"), "CSS must define modal styles");
+
+    // Card detail modal v2
+    assert!(css.contains("modal-card-v2"), "CSS must define v2 card modal layout");
+    assert!(css.contains("card-modal-header"), "CSS must define card modal header");
+    assert!(css.contains("card-modal-sidebar"), "CSS must define card modal sidebar");
+    assert!(css.contains("task-progress-bar"), "CSS must define task progress bar");
+    assert!(css.contains("sidebar-btn"), "CSS must define sidebar buttons");
+    assert!(css.contains("comment-tabs"), "CSS must define comment tabs");
+    // Kanban card date badges
+    assert!(css.contains("date-badge"), "CSS must define date-badge styles");
+    assert!(css.contains("date-start"), "CSS must define date-start style");
+    assert!(css.contains("date-due"), "CSS must define date-due style");
+    assert!(css.contains("date-overdue"), "CSS must define date-overdue style");
+    // Gantt chart styles
+    assert!(css.contains("view-toggle"), "CSS must define view-toggle styles");
+    assert!(css.contains("gantt-chart"), "CSS must define gantt-chart styles");
+    assert!(css.contains("gantt-timeline"), "CSS must define gantt-timeline styles");
+    assert!(css.contains("gantt-row"), "CSS must define gantt-row styles");
+    assert!(css.contains("gantt-bar"), "CSS must define gantt-bar styles");
+
+    // Responsive
+    assert!(css.contains("@media"), "CSS must have responsive rules");
+}
+
+#[tokio::test]
+async fn test_api_js_contains_all_endpoints() {
+    let ta = setup().await;
+
+    let req = axum::http::Request::builder()
+        .method("GET").uri("/js/api.js")
+        .body(axum::body::Body::empty()).unwrap();
+    let resp = ta.app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200);
+
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let js = String::from_utf8(body.to_vec()).unwrap();
+
+    // Core API methods
+    assert!(js.contains("getBoard"), "API must have getBoard");
+    assert!(js.contains("createBoard"), "API must have createBoard");
+    assert!(js.contains("getCard"), "API must have getCard");
+    assert!(js.contains("createCard"), "API must have createCard");
+    assert!(js.contains("moveCard"), "API must have moveCard");
+    assert!(js.contains("addCardLabel"), "API must have addCardLabel");
+    assert!(js.contains("createComment"), "API must have createComment");
+    assert!(js.contains("updateTask"), "API must have updateTask");
+    assert!(js.contains("listComments"), "API must have listComments");
+    assert!(js.contains("listBoardLabels"), "API must have listBoardLabels");
+
+    // Auth methods
+    assert!(js.contains("login"), "API must have login");
+    assert!(js.contains("logout"), "API must have logout");
+    assert!(js.contains("requireAuth"), "API must have requireAuth helper");
+
+    // DOM helpers
+    assert!(js.contains("function $("), "must have DOM selector helper");
+    assert!(js.contains("showAlert"), "must have alert helper");
 }
