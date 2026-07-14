@@ -197,3 +197,83 @@ async fn test_css_always_accessible() {
     let resp = ta.app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 200);
 }
+
+// ── Clean URLs (without .html) redirect when unauthenticated ────────
+
+#[tokio::test]
+async fn test_boards_clean_url_redirects_when_unauthed() {
+    let ta = setup().await;
+
+    let req = axum::http::Request::builder()
+        .method("GET")
+        .uri("/boards")
+        .body(axum::body::Body::empty())
+        .unwrap();
+
+    let resp = ta.app.oneshot(req).await.unwrap();
+
+    assert_eq!(resp.status(), 303);
+    assert_eq!(
+        resp.headers().get("location").and_then(|v| v.to_str().ok()),
+        Some("/login")
+    );
+}
+
+#[tokio::test]
+async fn test_board_clean_url_redirects_when_unauthed() {
+    let ta = setup().await;
+
+    let req = axum::http::Request::builder()
+        .method("GET")
+        .uri("/board")
+        .body(axum::body::Body::empty())
+        .unwrap();
+
+    let resp = ta.app.oneshot(req).await.unwrap();
+
+    assert_eq!(resp.status(), 303);
+    assert_eq!(
+        resp.headers().get("location").and_then(|v| v.to_str().ok()),
+        Some("/login")
+    );
+}
+
+#[tokio::test]
+async fn test_settings_clean_url_redirects_when_unauthed() {
+    let ta = setup().await;
+
+    let req = axum::http::Request::builder()
+        .method("GET")
+        .uri("/settings")
+        .body(axum::body::Body::empty())
+        .unwrap();
+
+    let resp = ta.app.oneshot(req).await.unwrap();
+
+    assert_eq!(resp.status(), 303);
+    assert_eq!(
+        resp.headers().get("location").and_then(|v| v.to_str().ok()),
+        Some("/login")
+    );
+}
+
+#[tokio::test]
+async fn test_boards_clean_url_serves_when_authed() {
+    let ta = setup().await;
+    let cookie = register(&ta.app).await;
+
+    let req = axum::http::Request::builder()
+        .method("GET")
+        .uri("/boards")
+        .header("cookie", &cookie)
+        .body(axum::body::Body::empty())
+        .unwrap();
+
+    let resp = ta.app.oneshot(req).await.unwrap();
+
+    assert_eq!(
+        resp.status(),
+        200,
+        "authenticated user should be able to access /boards"
+    );
+}

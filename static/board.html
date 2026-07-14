@@ -17,7 +17,7 @@
         <span class="slug" id="board-slug"></span>
       </div>
       <div class="flex gap-8">
-        <button class="btn" onclick="window.location.href='/boards.html'">&larr; Boards</button>
+        <button class="btn" onclick="window.location.href='/boards'">&larr; Boards</button>
         <button class="btn btn-danger" id="delete-board-btn" onclick="deleteBoard()">Delete Board</button>
       </div>
     </div>
@@ -85,7 +85,7 @@ async function init() {
   if (!user) return;
   const params = new URLSearchParams(location.search);
   boardId = params.get('id');
-  if (!boardId) { window.location.href = '/boards.html'; return; }
+  if (!boardId) { window.location.href = '/boards'; return; }
   $('#user-name').textContent = user.name;
   await loadBoard();
 }
@@ -328,7 +328,7 @@ async function deleteBoard() {
   if (!confirm('Delete this entire board? This cannot be undone.')) return;
   try {
     await API.deleteBoard(boardId);
-    window.location.href = '/boards.html';
+    window.location.href = '/boards';
   } catch (err) { showAlert(err.message); }
 }
 

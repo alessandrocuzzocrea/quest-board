@@ -118,11 +118,11 @@ async function requireAuth() {
 
 function navBar(currentPage) {
   const pages = [
-    { href: '/boards.html', label: 'Boards' },
-    { href: '/settings.html', label: 'Settings' },
+    { href: '/boards', label: 'Boards' },
+    { href: '/settings', label: 'Settings' },
   ];
   const nav = el('div', { className: 'topbar' },
-    el('a', { href: '/boards.html', className: 'logo' }, 'quest-board'),
+    el('a', { href: '/boards', className: 'logo' }, 'quest-board'),
     el('nav', {},
       ...pages.map(p => el('a', { href: p.href, style: p.href === currentPage ? 'color: var(--accent)' : '' }, p.label)),
       el('span', { className: 'user-name', id: 'user-name' }),
