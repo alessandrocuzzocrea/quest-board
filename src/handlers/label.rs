@@ -4,8 +4,8 @@ use axum::{Json, Router};
 use std::sync::Arc;
 
 use crate::error::AppError;
-use crate::models::label::*;
-use crate::repository;
+use crate::models::label::{CreateLabelRequest, UpdateLabelRequest};
+use crate::services::LabelService;
 use crate::AppState;
 
 pub fn router() -> Router<Arc<AppState>> {
@@ -22,7 +22,6 @@ async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppErr
     uuid::Uuid::parse_str(&uid).map_err(|_| AppError::Internal("invalid user id".into()))
 }
 
- 
 async fn list_labels(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -30,26 +29,22 @@ async fn list_labels(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
     let board_id: uuid::Uuid = board_id.parse().map_err(|_| AppError::BadRequest("invalid board id".into()))?;
-    let labels = repository::label_repo::list_by_board(&state.db, &board_id).await?;
+    let svc = LabelService::new(state.db.clone());
+    let labels = svc.list_by_board(&board_id).await?;
     Ok(Json(serde_json::json!(labels)))
 }
 
- 
 async fn create_label(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
     Json(req): Json<CreateLabelRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
-    let label = repository::label_repo::create(
-        &state.db, &req.board_id, &req.name,
-        &req.color.unwrap_or_else(|| "#0079bf".into()),
-        65536.0,
-    ).await?;
+    let svc = LabelService::new(state.db.clone());
+    let label = svc.create(&req).await?;
     Ok(Json(serde_json::json!(label)))
 }
 
- 
 async fn update_label(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -58,21 +53,8 @@ async fn update_label(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
     let label_id: uuid::Uuid = label_id.parse().map_err(|_| AppError::BadRequest("invalid label id".into()))?;
-
-    if let Some(name) = &req.name {
-        repository::label_repo::update_name(&state.db, &label_id, name).await?;
-    }
-    if let Some(color) = &req.color {
-        repository::label_repo::update_color(&state.db, &label_id, color).await?;
-    }
-    if let Some(position) = req.position {
-        repository::label_repo::update_position(&state.db, &label_id, position).await?;
-    }
-
-    let label = repository::label_repo::get_by_id(&state.db, &label_id)
-        .await?
-        .ok_or(AppError::NotFound("label not found".into()))?;
-
+    let svc = LabelService::new(state.db.clone());
+    let label = svc.update(&label_id, &req).await?;
     Ok(Json(serde_json::json!(label)))
 }
 
@@ -83,6 +65,7 @@ async fn delete_label(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
     let label_id: uuid::Uuid = label_id.parse().map_err(|_| AppError::BadRequest("invalid label id".into()))?;
-    repository::label_repo::delete(&state.db, &label_id).await?;
+    let svc = LabelService::new(state.db.clone());
+    svc.delete(&label_id).await?;
     Ok(Json(serde_json::json!({"ok": true})))
 }

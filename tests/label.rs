@@ -232,3 +232,50 @@ async fn test_list_labels_requires_auth() {
     let resp = ta.app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 401);
 }
+
+#[tokio::test]
+async fn test_label_service_crud() {
+    let ta = setup().await;
+    let cookie = register(&ta.app, "lblsvc").await;
+
+    let board: serde_json::Value = {
+        let req = axum::http::Request::builder()
+            .method("POST").uri("/api/v1/boards")
+            .header("content-type", "application/json").header("cookie", &cookie)
+            .body(axum::body::Body::from(r#"{"name":"Label Test"}"#)).unwrap();
+        let resp = ta.app.clone().oneshot(req).await.unwrap();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        serde_json::from_slice(&bytes).unwrap()
+    };
+    let board_id: uuid::Uuid = board["id"].as_str().unwrap().parse().unwrap();
+
+    let svc = quest_board::services::LabelService::new(ta._pool.clone());
+
+    // Create label via service
+    let create_req = quest_board::models::label::CreateLabelRequest {
+        board_id,
+        name: "Urgent".into(),
+        color: Some("#ff0000".into()),
+    };
+    let label = svc.create(&create_req).await.unwrap();
+    assert_eq!(label.name, "Urgent");
+    assert_eq!(label.color, "#ff0000");
+
+    // List labels via service
+    let labels = svc.list_by_board(&board_id).await.unwrap();
+    assert_eq!(labels.len(), 1);
+
+    // Update label via service
+    let update_req = quest_board::models::label::UpdateLabelRequest {
+        name: Some("High Priority".into()),
+        color: None,
+        position: None,
+    };
+    let updated = svc.update(&label.id, &update_req).await.unwrap();
+    assert_eq!(updated.name, "High Priority");
+
+    // Delete label via service
+    svc.delete(&label.id).await.unwrap();
+    let labels = svc.list_by_board(&board_id).await.unwrap();
+    assert!(labels.is_empty(), "label should be deleted");
+}
