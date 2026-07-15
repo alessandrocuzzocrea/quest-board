@@ -1,0 +1,17 @@
+{% if boards.is_empty() %}
+  {% if query.is_empty() %}
+<div class="empty-state"><div class="icon">&#128203;</div><p>No boards yet. Create one!</p></div>
+  {% else %}
+<div class="empty-state"><div class="icon">&#128269;</div><p>No boards match &quot;{{ query }}&quot;</p></div>
+  {% endif %}
+{% else %}
+  {% for b in boards %}
+<div class="board-card" onclick="openBoard('{{ b.slug }}','{{ b.name }}')">
+  <div class="actions" onclick="event.stopPropagation()">
+    <button class="btn btn-sm btn-icon" onclick="confirmDelete('{{ b.id }}','{{ b.name }}')" title="Delete">&#128465;</button>
+  </div>
+  <h3>{{ b.name }}</h3>
+  <div class="meta">{% if !b.slug.is_empty() %}/{{ b.slug }}{% endif %}</div>
+</div>
+  {% endfor %}
+{% endif %}

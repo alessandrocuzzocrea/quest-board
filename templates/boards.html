@@ -10,8 +10,9 @@
 
   <div class="search-bar mb-16" style="max-width:400px">
     <span class="icon">&#128269;</span>
-    <input type="search" placeholder="Filter boards..." id="search-input"
-           hx-trigger="keyup changed delay:300ms" hx-target="#board-grid" hx-swap="innerHTML">
+    <input type="search" placeholder="Filter boards..." id="search-input" name="q"
+           hx-get="/api/v1/search" hx-trigger="keyup changed delay:300ms"
+           hx-target="#board-grid" hx-swap="innerHTML">
   </div>
 
   <div id="board-grid" class="board-grid">
@@ -84,19 +85,8 @@ function renderBoards(list) {
       <h3>${esc(b.name)}</h3>
       <div class="meta">${b.slug ? '/' + esc(b.slug) : ''}</div>
     </div>
-  `).join('');
+`).join('');
 }
-
-document.body.addEventListener('htmx:afterOnLoad', function(evt) {
-  // Not used for JSON API; we handle filtering locally
-});
-
-$('#search-input').addEventListener('input', function() {
-  const q = this.value.toLowerCase();
-  if (!q) { renderBoards(boards); return; }
-  const filtered = boards.filter(b => b.name.toLowerCase().includes(q) || (b.slug && b.slug.includes(q)));
-  renderBoards(filtered);
-});
 
 function openBoard(slug, name) {
   const namePart = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'board';

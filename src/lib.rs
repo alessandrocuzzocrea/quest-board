@@ -85,6 +85,12 @@ struct BoardTemplate {
 #[derive(Template)]
 #[template(path = "settings.html")]
 struct SettingsTemplate;
+#[derive(Template)]
+#[template(path = "partials/board_grid.html")]
+pub(crate) struct BoardGridTemplate {
+    boards: Vec<models::board::Board>,
+    query: String,
+}
 
 async fn page_boards() -> impl IntoResponse {
     Html(BoardsTemplate.render().unwrap())

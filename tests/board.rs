@@ -152,3 +152,65 @@ async fn test_board_slug_survives_migration_reapply() {
     let slug_after = data["board"]["slug"].as_str().unwrap();
     assert_eq!(slug_after, original_slug, "slug must not change when migrations re-run");
 }
+
+#[tokio::test]
+async fn test_search_returns_html_for_htmx_requests() {
+    let ta = setup().await;
+    let cookie = register(&ta.app, "searchh").await;
+
+    // Create a couple boards with different names
+    for name in ["Alpha Board", "Beta Project"] {
+        let req = axum::http::Request::builder()
+            .method("POST").uri("/api/v1/boards")
+            .header("content-type", "application/json")
+            .header("cookie", &cookie)
+            .body(axum::body::Body::from(format!(r#"{{"name":"{name}"}}"#))).unwrap();
+        let resp = ta.app.clone().oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), 200, "create {name}");
+    }
+    // HTMX search: expect HTML partial
+    let req = axum::http::Request::builder()
+        .method("GET").uri("/api/v1/search?q=Alpha")
+        .header("cookie", &cookie)
+        .header("HX-Request", "true")
+        .body(axum::body::Body::empty()).unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
+    let status = resp.status();
+    let content_type = resp.headers().get("content-type").and_then(|v| v.to_str().ok()).unwrap_or("").to_string();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(status, 200, "HTMX search: {}", String::from_utf8_lossy(&bytes));
+    assert!(content_type.starts_with("text/html"), "HTMX search should return HTML, got: {content_type}");
+    let html = String::from_utf8_lossy(&bytes);
+    assert!(html.contains("Alpha Board"), "HTMX response should contain matching board name");
+    assert!(!html.contains("Beta Project"), "HTMX response should not contain non-matching boards");
+
+    // JSON search (no HX-Request): expect JSON
+    let req = axum::http::Request::builder()
+        .method("GET").uri("/api/v1/search?q=Alpha")
+        .header("cookie", &cookie)
+        .body(axum::body::Body::empty()).unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
+    let status = resp.status();
+    let content_type = resp.headers().get("content-type").and_then(|v| v.to_str().ok()).unwrap_or("").to_string();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(status, 200, "JSON search: {}", String::from_utf8_lossy(&bytes));
+    assert!(content_type.starts_with("application/json"), "JSON search should return JSON, got: {content_type}");
+    let data: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let board_names: Vec<&str> = data["boards"].as_array().unwrap().iter()
+        .filter_map(|b| b["name"].as_str()).collect();
+    assert!(board_names.contains(&"Alpha Board"), "JSON should contain matching board");
+    assert!(!board_names.contains(&"Beta Project"), "JSON should not contain non-matching board");
+
+    // Empty query returns all boards
+    let req = axum::http::Request::builder()
+        .method("GET").uri("/api/v1/search?q=")
+        .header("cookie", &cookie)
+        .header("HX-Request", "true")
+        .body(axum::body::Body::empty()).unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200, "empty query search should succeed");
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let html = String::from_utf8_lossy(&bytes);
+    assert!(html.contains("Alpha Board"), "empty query should return all boards");
+    assert!(html.contains("Beta Project"), "empty query should return all boards");
+}
