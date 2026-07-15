@@ -236,3 +236,46 @@ async fn test_delete_comment_requires_auth() {
     let resp = ta.app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 401);
 }
+
+#[tokio::test]
+async fn test_comment_service_crud() {
+    let ta = setup().await;
+    let cookie = register(&ta.app).await;
+    let board_id = create_board(&ta.app, &cookie).await;
+    let list_id = create_list(&ta.app, &cookie, &board_id).await;
+    let card_id = create_card(&ta.app, &cookie, &list_id).await;
+
+    let uid: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE username = $1")
+        .bind("cu")
+        .fetch_one(&ta._pool)
+        .await
+        .unwrap();
+
+    let (event_tx, _rx) = quest_board::events::channel();
+    let svc = quest_board::services::CommentService::new(ta._pool.clone(), event_tx);
+
+    // Create a comment via service
+    let create_req = quest_board::models::comment::CreateCommentRequest {
+        card_id: card_id.parse().unwrap(),
+        text: "Service test comment".into(),
+    };
+    let comment = svc.create(&create_req, &uid).await.unwrap();
+    assert_eq!(comment.text, "Service test comment");
+
+    // List comments via service
+    let comments = svc.list_by_card(&card_id.parse().unwrap()).await.unwrap();
+    assert_eq!(comments.len(), 1);
+    assert_eq!(comments[0].text, "Service test comment");
+
+    // Update comment via service
+    let update_req = quest_board::models::comment::UpdateCommentRequest {
+        text: "Updated text".into(),
+    };
+    let updated = svc.update(&comment.id, &update_req, &uid).await.unwrap();
+    assert_eq!(updated.text, "Updated text");
+
+    // Delete comment via service
+    svc.delete(&comment.id, &uid).await.unwrap();
+    let comments = svc.list_by_card(&card_id.parse().unwrap()).await.unwrap();
+    assert!(comments.is_empty(), "comment should be deleted");
+}
