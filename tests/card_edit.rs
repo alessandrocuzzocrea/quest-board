@@ -200,3 +200,30 @@ async fn test_add_and_remove_card_label() {
     ).await.unwrap();
     assert_eq!(resp.status(), 200);
 }
+
+#[tokio::test]
+async fn test_get_card_returns_name_at_top_level() {
+    let ta = setup().await;
+    let cookie = register(&ta.app).await;
+
+    let board = create_board(&ta.app, &cookie).await;
+    let board_id = board["id"].as_str().unwrap();
+
+    let list = create_list(&ta.app, &cookie, board_id).await;
+    let list_id = list["id"].as_str().unwrap();
+
+    let card = create_card(&ta.app, &cookie, list_id, "My Card").await;
+    let card_id = card["id"].as_str().unwrap();
+
+    let req = axum::http::Request::builder()
+        .method("GET").uri(&format!("/api/v1/cards/{card_id}"))
+        .header("cookie", &cookie)
+        .body(axum::body::Body::empty()).unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200, "GET card should succeed");
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let data: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+
+    // The card name should be at the top level, not nested under "card"
+    assert_eq!(data["name"], "My Card", "card name should be at top level");
+}
