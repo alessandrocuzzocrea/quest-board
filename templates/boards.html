@@ -15,11 +15,10 @@
            hx-target="#board-grid" hx-swap="innerHTML">
   </div>
 
-  <div id="board-grid" class="board-grid">
-    <div class="text-center" style="grid-column:1/-1;padding:48px"><div class="spinner"></div></div>
-  </div>
+  <div id="board-grid" class="board-grid"
+       hx-get="/api/v1/boards/html"
+       hx-trigger="load, board-updated from:body"></div>
 </div>
-
 <!-- Create board modal -->
 <div class="modal-overlay" id="create-modal">
   <div class="modal">
@@ -52,7 +51,6 @@
 </div>
 
 <script>
-let boards = [];
 let deleteTarget = null;
 
 async function init() {
@@ -60,33 +58,8 @@ async function init() {
   if (!user) return;
   document.getElementById('nav').appendChild(navBar('boards'));
   $('#user-name').textContent = user.name;
-  await loadBoards();
 }
 init();
-
-async function loadBoards() {
-  try {
-    boards = await API.listBoards();
-    renderBoards(boards);
-  } catch (err) { showAlert(err.message); }
-}
-
-function renderBoards(list) {
-  const grid = $('#board-grid');
-  if (!list || list.length === 0) {
-    grid.innerHTML = '<div class="empty-state"><div class="icon">&#128203;</div><p>No boards yet. Create one!</p></div>';
-    return;
-  }
-  grid.innerHTML = list.map(b => `
-    <div class="board-card" onclick="openBoard('${b.slug}','${esc(b.name).replace(/'/g,"\\'")}')">
-      <div class="actions" onclick="event.stopPropagation()">
-        <button class="btn btn-sm btn-icon" onclick="confirmDelete('${b.id}','${b.name.replace(/'/g,"\\'")}')" title="Delete">&#128465;</button>
-      </div>
-      <h3>${esc(b.name)}</h3>
-      <div class="meta">${b.slug ? '/' + esc(b.slug) : ''}</div>
-    </div>
-`).join('');
-}
 
 function openBoard(slug, name) {
   const namePart = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'board';
@@ -100,9 +73,9 @@ async function createBoard() {
   if (!name) return showAlert('Name is required');
   const slug = $('#new-board-slug').value.trim() || undefined;
   try {
-    const b = await API.createBoard({ name, slug });
+    await API.createBoard({ name, slug });
     closeModal('create-modal');
-    await loadBoards();
+    document.body.dispatchEvent(new Event('board-updated'));
   } catch (err) { showAlert(err.message); }
 }
 
@@ -118,7 +91,7 @@ async function deleteConfirmed() {
     await API.deleteBoard(deleteTarget);
     closeModal('delete-modal');
     deleteTarget = null;
-    await loadBoards();
+    document.body.dispatchEvent(new Event('board-updated'));
   } catch (err) { showAlert(err.message); }
 }
 

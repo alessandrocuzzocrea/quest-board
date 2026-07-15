@@ -1,3 +1,5 @@
+use askama::Template;
+
 use axum::extract::{Path, State};
 use axum::http::HeaderMap;
 use axum::routing::get;
@@ -14,20 +16,36 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_boards).post(create_board))
         .route("/{id}", get(get_board).put(update_board).delete(delete_board))
         .route("/by-slug/{slug}", get(get_board_by_slug))
+        .route("/html", get(list_boards_html))
 }
 
 async fn user_id(session: tower_sessions::Session, headers: HeaderMap, pool: &sqlx::PgPool) -> Result<uuid::Uuid, AppError> {
     crate::auth::resolve_user(&session, &headers, pool).await
 }
-
 async fn list_boards(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let uid = user_id(session, headers, &state.db).await?;
-    let boards = repository::board_repo::list_accessible(&state.db, &uid).await?;
+    let svc = crate::services::BoardService::new(state.db.clone());
+    let boards = svc.list_accessible(&uid).await?;
     Ok(Json(serde_json::json!(boards)))
+}
+
+/// HTML endpoint — returns board cards as HTML for htmx `hx-trigger="load"`.
+async fn list_boards_html(
+    State(state): State<Arc<AppState>>,
+    session: tower_sessions::Session,
+    headers: HeaderMap,
+) -> Result<impl axum::response::IntoResponse, AppError> {
+    let uid = user_id(session, headers, &state.db).await?;
+    let svc = crate::services::BoardService::new(state.db.clone());
+    let boards = svc.list_accessible(&uid).await?;
+    let tmpl = crate::BoardGridTemplate { boards, query: String::new() };
+    Ok(axum::response::Html(
+        tmpl.render().map_err(|e| AppError::Internal(e.to_string()))?,
+    ))
 }
 
 async fn create_board(
