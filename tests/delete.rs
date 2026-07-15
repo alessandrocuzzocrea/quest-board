@@ -23,7 +23,7 @@ async fn setup() -> TestApp {
         .execute(&pool).await.ok();
     quest_board::db::run_migrations(&pool).await.unwrap();
     let (event_tx, _) = quest_board::events::channel();
-    let state = Arc::new(AppState { db: pool.clone(), ai_client: Arc::new(quest_board::handlers::ai::RealLlmClient), event_tx });
+    let state = Arc::new(AppState { db: pool.clone(), event_tx });
     let app = quest_board::build_app(pool.clone(), state).await;
     TestApp { _guard, app, _pool: pool }
 }

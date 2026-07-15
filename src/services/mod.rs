@@ -14,3 +14,5 @@ pub mod api_key_service;
 pub use api_key_service::ApiKeyService;
 pub mod card_service;
 pub use card_service::CardService;
+pub mod auth_service;
+pub use auth_service::AuthService;
