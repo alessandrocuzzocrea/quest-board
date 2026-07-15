@@ -31,6 +31,16 @@ async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppErr
     uuid::Uuid::parse_str(&uid).map_err(|_| AppError::Internal("invalid user id".into()))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/cards",
+    tag = "cards",
+    request_body = CreateCardRequest,
+    responses(
+        (status = 200, body = serde_json::Value)
+    )
+)]
+
 async fn create_card(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -41,6 +51,16 @@ async fn create_card(
     let card = svc.create(&req, &uid).await?;
     Ok(Json(serde_json::json!(card)))
 }
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/cards/{id}",
+    tag = "cards",
+    params(("id" = String, Path)),
+    responses(
+        (status = 200, body = serde_json::Value)
+    )
+)]
 
 async fn get_card(
     State(state): State<Arc<AppState>>,
@@ -53,6 +73,17 @@ async fn get_card(
     let result = svc.get_with_relations(&card_id).await?;
     Ok(Json(result))
 }
+
+#[utoipa::path(
+    put,
+    path = "/api/v1/cards/{id}",
+    tag = "cards",
+    params(("id" = String, Path)),
+    request_body = UpdateCardRequest,
+    responses(
+        (status = 200, body = serde_json::Value)
+    )
+)]
 
 async fn update_card(
     State(state): State<Arc<AppState>>,
@@ -67,6 +98,16 @@ async fn update_card(
     Ok(Json(serde_json::json!(card)))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/api/v1/cards/{id}",
+    tag = "cards",
+    params(("id" = String, Path)),
+    responses(
+        (status = 200, body = serde_json::Value)
+    )
+)]
+
 async fn delete_card(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -78,6 +119,16 @@ async fn delete_card(
     svc.delete(&card_id, &uid).await?;
     Ok(Json(serde_json::json!({"ok": true})))
 }
+#[utoipa::path(
+    put,
+    path = "/api/v1/cards/{id}/move",
+    tag = "cards",
+    params(("id" = String, Path)),
+    request_body = MoveCardRequest,
+    responses(
+        (status = 200, body = serde_json::Value)
+    )
+)]
 
 async fn move_card(
     State(state): State<Arc<AppState>>,

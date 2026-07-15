@@ -3,7 +3,7 @@ use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, TS)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, TS, utoipa::ToSchema)]
 #[ts(export)]
 pub struct Attachment {
     pub id: Uuid,

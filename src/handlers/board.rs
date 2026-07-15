@@ -23,6 +23,7 @@ async fn user_id(session: tower_sessions::Session, headers: HeaderMap, pool: &sq
     crate::auth::resolve_user(&session, &headers, pool).await
 }
 
+#[utoipa::path(get, path = "/api/v1/boards", tag = "boards", responses((status = 200, body = serde_json::Value)))]
 async fn list_boards(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -49,6 +50,7 @@ async fn list_boards_html(
     ))
 }
 
+#[utoipa::path(post, path = "/api/v1/boards", tag = "boards", request_body = CreateBoardRequest, responses((status = 200, body = serde_json::Value)))]
 async fn create_board(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -61,6 +63,7 @@ async fn create_board(
     Ok(Json(serde_json::json!(board)))
 }
 
+#[utoipa::path(get, path = "/api/v1/boards/{id}", tag = "boards", params(("id" = String, Path)), responses((status = 200, body = serde_json::Value)))]
 async fn get_board(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -74,6 +77,7 @@ async fn get_board(
     Ok(Json(serde_json::json!({"board": board, "lists": lists, "members": members})))
 }
 
+#[utoipa::path(put, path = "/api/v1/boards/{id}", tag = "boards", params(("id" = String, Path)), request_body = UpdateBoardRequest, responses((status = 200, body = serde_json::Value)))]
 async fn update_board(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -88,6 +92,7 @@ async fn update_board(
     Ok(Json(serde_json::json!(board)))
 }
 
+#[utoipa::path(delete, path = "/api/v1/boards/{id}", tag = "boards", params(("id" = String, Path)), responses((status = 200, body = serde_json::Value)))]
 async fn delete_board(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -101,6 +106,7 @@ async fn delete_board(
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
+#[utoipa::path(get, path = "/api/v1/boards/by-slug/{slug}", tag = "boards", params(("slug" = String, Path)), responses((status = 200, body = serde_json::Value)))]
 async fn get_board_by_slug(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,

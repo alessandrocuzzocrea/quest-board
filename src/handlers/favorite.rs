@@ -21,6 +21,7 @@ async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppErr
     uuid::Uuid::parse_str(&uid).map_err(|_| AppError::Internal("invalid user id".into()))
 }
 
+#[utoipa::path(get, path = "/api/v1/favorites", tag = "favorites", responses((status = 200, body = serde_json::Value)))]
 async fn list_favorites(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -31,6 +32,7 @@ async fn list_favorites(
     Ok(Json(result))
 }
 
+#[utoipa::path(post, path = "/api/v1/favorites", tag = "favorites", request_body = CreateFavoriteRequest, responses((status = 200, body = serde_json::Value)))]
 async fn create_favorite(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -42,6 +44,15 @@ async fn create_favorite(
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/api/v1/favorites/{id}",
+    tag = "favorites",
+    params(("id" = String, Path)),
+    responses(
+        (status = 200, body = serde_json::Value)
+    )
+)]
 async fn delete_favorite(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,

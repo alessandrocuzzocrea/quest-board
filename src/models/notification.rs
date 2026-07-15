@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 #[allow(dead_code)]
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, TS)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, TS, utoipa::ToSchema)]
 #[ts(export)]
 pub struct Notification {
     pub id: Uuid,

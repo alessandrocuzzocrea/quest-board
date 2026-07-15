@@ -3,7 +3,7 @@ use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, TS)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, TS, utoipa::ToSchema)]
 #[ts(export)]
 pub struct Comment {
     pub id: Uuid,
@@ -14,20 +14,20 @@ pub struct Comment {
     pub updated_at: String,
 }
 
-#[derive(Debug, Deserialize, TS)]
+#[derive(Debug, Deserialize, TS, utoipa::ToSchema)]
 #[ts(export)]
 pub struct CreateCommentRequest {
     pub card_id: Uuid,
     pub text: String,
 }
 
-#[derive(Debug, Deserialize, TS)]
+#[derive(Debug, Deserialize, TS, utoipa::ToSchema)]
 #[ts(export)]
 pub struct UpdateCommentRequest {
     pub text: String,
 }
 
-#[derive(Debug, Serialize, TS)]
+#[derive(Debug, Serialize, TS, utoipa::ToSchema)]
 #[ts(export)]
 pub struct CommentWithUser {
     pub id: Uuid,

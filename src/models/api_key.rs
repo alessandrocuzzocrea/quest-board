@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use ts_rs::TS;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, TS)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, TS, utoipa::ToSchema)]
 #[ts(export)]
 pub struct ApiKey {
     pub id: Uuid,
@@ -23,7 +23,7 @@ pub struct ApiKey {
     pub is_active: bool,
 }
 
-#[derive(Debug, Deserialize, TS)]
+#[derive(Debug, Deserialize, TS, utoipa::ToSchema)]
 #[ts(export)]
 pub struct CreateApiKeyRequest {
     pub name: String,
@@ -31,7 +31,7 @@ pub struct CreateApiKeyRequest {
     pub expires_at: Option<OffsetDateTime>,
 }
 
-#[derive(Debug, Serialize, TS)]
+#[derive(Debug, Serialize, TS, utoipa::ToSchema)]
 #[ts(export)]
 pub struct ApiKeyResponse {
     pub id: Uuid,

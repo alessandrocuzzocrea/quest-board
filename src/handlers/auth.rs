@@ -32,6 +32,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/me/password", put(change_password))
 }
 
+#[utoipa::path(post, path = "/api/v1/auth/register", tag = "auth", request_body = RegisterRequest, responses((status = 200, body = serde_json::Value)))]
 async fn register(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -43,6 +44,7 @@ async fn register(
     Ok(Json(serde_json::json!({"user": {"id": user.id.to_string(), "username": req.username, "name": req.name, "role": "user"}})))
 }
 
+#[utoipa::path(post, path = "/api/v1/auth/login", tag = "auth", request_body = LoginRequest, responses((status = 200, body = serde_json::Value)))]
 async fn login(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -57,6 +59,7 @@ async fn logout(session: tower_sessions::Session) -> Result<Json<serde_json::Val
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
+#[utoipa::path(get, path = "/api/v1/auth/me", tag = "auth", responses((status = 200, body = serde_json::Value)))]
 async fn me(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -68,6 +71,7 @@ async fn me(
     Ok(Json(serde_json::json!({"user": UserResponse::from(user)})))
 }
 
+#[utoipa::path(put, path = "/api/v1/auth/me", tag = "auth", request_body = UpdateNameRequest, responses((status = 200, body = serde_json::Value)))]
 async fn update_name(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -80,6 +84,7 @@ async fn update_name(
     Ok(Json(serde_json::json!({"user": UserResponse::from(user)})))
 }
 
+#[utoipa::path(put, path = "/api/v1/auth/me/password", tag = "auth", request_body = ChangePasswordRequest, responses((status = 200, body = serde_json::Value)))]
 async fn change_password(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
