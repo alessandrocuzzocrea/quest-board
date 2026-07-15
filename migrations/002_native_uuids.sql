@@ -220,7 +220,7 @@ ALTER TABLE favorites ADD FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE C
 
 -- === Add slug column to boards ===
 ALTER TABLE boards ADD COLUMN IF NOT EXISTS slug TEXT;
-UPDATE boards SET slug = substr(replace(gen_random_uuid()::text, '-', ''), 1, 8);
+UPDATE boards SET slug = substr(replace(gen_random_uuid()::text, '-', ''), 1, 8) WHERE slug IS NULL OR slug = '';
 ALTER TABLE boards ALTER COLUMN slug SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_boards_slug ON boards(slug);
 

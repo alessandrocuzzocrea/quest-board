@@ -117,3 +117,38 @@ async fn test_board_not_visible_to_other_users() {
     let boards: Vec<serde_json::Value> = serde_json::from_slice(&bytes).unwrap_or_default();
     assert_eq!(boards.len(), 0, "bob should not see alice's board");
 }
+
+#[tokio::test]
+async fn test_board_slug_survives_migration_reapply() {
+    let ta = setup().await;
+    let cookie = register(&ta.app, "slugtest").await;
+
+    // Create board
+    let req = axum::http::Request::builder()
+        .method("POST").uri("/api/v1/boards")
+        .header("content-type", "application/json")
+        .header("cookie", &cookie)
+        .body(axum::body::Body::from(r#"{"name":"Slug Test"}"#)).unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let board: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let original_slug = board["slug"].as_str().unwrap().to_string();
+    assert!(original_slug.len() >= 6, "board should have a slug");
+
+    // Re-run migrations (simulating server restart)
+    quest_board::db::run_migrations(&ta._pool)
+        .await
+        .expect("migrations re-apply should succeed");
+
+    // Fetch board by slug — should still work
+    let req = axum::http::Request::builder()
+        .method("GET").uri(&format!("/api/v1/boards/by-slug/{}", original_slug))
+        .header("cookie", &cookie)
+        .body(axum::body::Body::empty()).unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200, "board should still be found by original slug after migration re-apply");
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let data: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let slug_after = data["board"]["slug"].as_str().unwrap();
+    assert_eq!(slug_after, original_slug, "slug must not change when migrations re-run");
+}
