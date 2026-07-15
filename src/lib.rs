@@ -8,6 +8,8 @@ pub mod repository;
 pub mod slug;
 pub mod session;
 pub mod events;
+use askama::Template;
+use axum::extract::Path;
 use axum::routing::get;
 use axum::{
     middleware,
@@ -69,18 +71,54 @@ async fn require_auth_for_html(
 
 // ── Page handlers for clean URLs ─────────────────────────────────────
 
-async fn page_boards() -> impl IntoResponse {
-    Html(include_str!("../static/boards.html"))
+#[derive(Template)]
+#[template(path = "boards.html")]
+struct BoardsTemplate;
+
+#[derive(Template)]
+#[template(path = "board.html")]
+struct BoardTemplate {
+    board_name: String,
+    board_slug: String,
 }
 
-async fn page_board() -> impl IntoResponse {
-    Html(include_str!("../static/board.html"))
+#[derive(Template)]
+#[template(path = "settings.html")]
+struct SettingsTemplate;
+
+async fn page_boards() -> impl IntoResponse {
+    Html(BoardsTemplate.render().unwrap())
+}
+
+async fn page_board_with_slug(
+    Path((slug, _name)): Path<(String, String)>,
+) -> impl IntoResponse {
+    let board = BoardTemplate {
+        board_name: _name,
+        board_slug: slug,
+    };
+    Html(board.render().unwrap())
+}
+
+async fn page_board_html() -> impl IntoResponse {
+    let board = BoardTemplate {
+        board_name: String::new(),
+        board_slug: String::new(),
+    };
+    Html(board.render().unwrap())
+}
+
+async fn page_boards_html() -> impl IntoResponse {
+    Html(BoardsTemplate.render().unwrap())
+}
+
+async fn page_settings_html() -> impl IntoResponse {
+    Html(SettingsTemplate.render().unwrap())
 }
 
 async fn page_settings() -> impl IntoResponse {
-    Html(include_str!("../static/settings.html"))
+    Html(SettingsTemplate.render().unwrap())
 }
-
 // ── Root path handler ────────────────────────────────────────────────
 
 async fn root_handler(
@@ -121,8 +159,11 @@ pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router
         .route("/login", get(handlers::auth::htmx_login_page).post(handlers::auth::htmx_login))
         .route("/", get(root_handler))
         .route("/boards", get(page_boards))
-        .route("/board/{slug}/{*name}", get(page_board))
+        .route("/boards.html", get(page_boards_html))
+        .route("/board/{slug}/{*name}", get(page_board_with_slug))
+        .route("/board.html", get(page_board_html))
         .route("/settings", get(page_settings))
+        .route("/settings.html", get(page_settings_html))
         .nest("/api/v1", api)
         .fallback_service(tower::service_fn(static_or_redirect))
         .layer(middleware::from_fn(require_auth_for_html))

@@ -1,15 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Boards — quest-board</title>
-<link rel="stylesheet" href="/css/style.css">
-<script src="/js/api.js"></script>
-<script src="/js/htmx.min.js"></script>
-</head>
-<body>
-<div id="nav"></div>
+{% extends "base.html" %}
+{% block title %}Boards — quest-board{% endblock %}
+{% block head %}<script src="/js/htmx.min.js"></script>{% endblock %}
+{% block body %}
 <div class="page">
   <div class="flex items-center justify-between mb-16">
     <h1>Boards</h1>
@@ -32,12 +24,12 @@
   <div class="modal">
     <h2>New Board</h2>
     <div class="form-group">
-      <label>Name</label>
-      <input type="text" id="new-board-name" placeholder="My Board" required>
+      <label for="new-board-name">Name</label>
+      <input type="text" id="new-board-name" class="input" placeholder="My Board" required>
     </div>
     <div class="form-group">
-      <label>Slug (URL)</label>
-      <input type="text" id="new-board-slug" placeholder="my-board">
+      <label for="new-board-slug">Slug <span class="text-sm" style="color:var(--text2)">(optional, auto-generated)</span></label>
+      <input type="text" id="new-board-slug" class="input" placeholder="my-board">
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('create-modal')">Cancel</button>
@@ -50,10 +42,10 @@
 <div class="modal-overlay" id="delete-modal">
   <div class="modal">
     <h2>Delete Board</h2>
-    <p>Are you sure you want to delete <strong id="delete-board-name"></strong>? This cannot be undone.</p>
+    <p id="delete-msg"></p>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('delete-modal')">Cancel</button>
-      <button class="btn btn-danger" id="delete-confirm-btn" onclick="deleteBoard()">Delete</button>
+      <button class="btn btn-danger" id="delete-confirm-btn" onclick="deleteConfirmed()">Delete</button>
     </div>
   </div>
 </div>
@@ -67,10 +59,16 @@ async function init() {
   if (!user) return;
   document.getElementById('nav').appendChild(navBar('boards'));
   $('#user-name').textContent = user.name;
-  boards = await API.listBoards();
-  renderBoards(boards);
+  await loadBoards();
 }
 init();
+
+async function loadBoards() {
+  try {
+    boards = await API.listBoards();
+    renderBoards(boards);
+  } catch (err) { showAlert(err.message); }
+}
 
 function renderBoards(list) {
   const grid = $('#board-grid');
@@ -89,7 +87,6 @@ function renderBoards(list) {
   `).join('');
 }
 
-// HTMX-powered search filtering
 document.body.addEventListener('htmx:afterOnLoad', function(evt) {
   // Not used for JSON API; we handle filtering locally
 });
@@ -115,34 +112,28 @@ async function createBoard() {
   try {
     const b = await API.createBoard({ name, slug });
     closeModal('create-modal');
-    $('#new-board-name').value = '';
-    $('#new-board-slug').value = '';
-    boards.push(b);
-    renderBoards(boards);
+    await loadBoards();
   } catch (err) { showAlert(err.message); }
 }
 
 function confirmDelete(id, name) {
   deleteTarget = id;
-  $('#delete-board-name').textContent = name;
+  $('#delete-msg').textContent = `Delete "${name}"? This cannot be undone.`;
   openModal('delete-modal');
 }
 
-async function deleteBoard() {
+async function deleteConfirmed() {
   if (!deleteTarget) return;
   try {
     await API.deleteBoard(deleteTarget);
-    boards = boards.filter(b => b.id !== deleteTarget);
-    renderBoards(boards);
     closeModal('delete-modal');
     deleteTarget = null;
+    await loadBoards();
   } catch (err) { showAlert(err.message); }
 }
 
 function openModal(id) { $(`#${id}`).classList.add('open'); }
 function closeModal(id) { $(`#${id}`).classList.remove('open'); }
-
-function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 </script>
-</body>
-</html>
+{% endblock %}

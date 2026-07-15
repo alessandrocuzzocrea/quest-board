@@ -304,6 +304,36 @@ async fn test_board_slug_url_serves_when_authed() {
     assert!(html.contains("kanban"), "board page should contain kanban element");
 }
 
+#[tokio::test]
+async fn test_board_page_renders_name_not_loading_flash() {
+    let ta = setup().await;
+    let cookie = register(&ta.app).await;
+
+    let req = axum::http::Request::builder()
+        .method("GET")
+        .uri("/board/test-slug/my-board")
+        .header("cookie", &cookie)
+        .body(axum::body::Body::empty())
+        .unwrap();
+
+    let resp = ta.app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200);
+
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let html = String::from_utf8(body.to_vec()).unwrap();
+
+    // The board name from the URL should be rendered server-side,
+    // not the "Loading..." placeholder.
+    assert!(
+        html.contains("my-board"),
+        "board page should render the board name from the URL, not 'Loading...'"
+    );
+    assert!(
+        !html.contains("Loading..."),
+        "board page should NOT show 'Loading...' flash — name must be pre-populated"
+    );
+}
+
 // ── Root path / redirects based on auth status ──────────────────────
 
 #[tokio::test]

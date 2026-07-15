@@ -1,53 +1,45 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Settings — quest-board</title>
-<link rel="stylesheet" href="/css/style.css">
-<script src="/js/api.js"></script>
-</head>
-<body>
-<div id="nav"></div>
+{% extends "base.html" %}
+{% block title %}Settings — quest-board{% endblock %}
+{% block body %}
 <div class="page" style="max-width:640px">
   <h1 class="mb-16">Settings</h1>
 
   <div class="settings-section">
-    <h2>Profile</h2>
-    <form onsubmit="return updateProfile(event)">
+    <h3>Profile</h3>
+    <form onsubmit="updateProfile(event)">
       <div class="form-group">
-        <label>Name</label>
-        <input type="text" id="settings-name" required>
+        <label for="settings-name">Display Name</label>
+        <input type="text" id="settings-name" class="input" required>
       </div>
       <div class="form-group">
-        <label>Username</label>
-        <input type="text" id="settings-username" disabled style="opacity:.6">
+        <label for="settings-username">Username</label>
+        <input type="text" id="settings-username" class="input" disabled>
       </div>
-      <button type="submit" class="btn btn-primary">Save Changes</button>
+      <button class="btn btn-primary">Update Profile</button>
     </form>
   </div>
 
   <div class="settings-section">
-    <h2>Change Password</h2>
-    <form onsubmit="return changePassword(event)">
+    <h3>Change Password</h3>
+    <form onsubmit="changePassword(event)">
       <div class="form-group">
-        <label>Current Password</label>
-        <input type="password" id="settings-current-password" required>
+        <label for="settings-current-password">Current Password</label>
+        <input type="password" id="settings-current-password" class="input" required>
       </div>
       <div class="form-group">
-        <label>New Password</label>
-        <input type="password" id="settings-new-password" required minlength="6">
+        <label for="settings-new-password">New Password</label>
+        <input type="password" id="settings-new-password" class="input" required>
       </div>
-      <button type="submit" class="btn btn-primary">Update Password</button>
+      <button class="btn btn-primary">Change Password</button>
     </form>
   </div>
 
   <div class="settings-section">
-    <h2>API Keys</h2>
-    <div id="api-keys-list" class="mb-8"></div>
-    <form onsubmit="return createApiKey(event)" class="flex gap-8">
-      <input type="text" id="new-key-name" placeholder="Key name (e.g. ci)" required style="flex:1">
-      <button type="submit" class="btn btn-primary">Generate</button>
+    <h3>API Keys</h3>
+    <div id="api-keys-list" class="mb-16"></div>
+    <form onsubmit="createApiKey(event)" class="flex gap-8">
+      <input type="text" id="new-key-name" class="input" placeholder="Key name" required style="flex:1">
+      <button class="btn btn-primary">Create Key</button>
     </form>
   </div>
 </div>
@@ -126,5 +118,4 @@ async function deleteKey(id) {
 
 function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 </script>
-</body>
-</html>
+{% endblock %}

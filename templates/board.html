@@ -1,0 +1,640 @@
+{% extends "base.html" %}
+{% block title %}{% if !board_name.is_empty() %}{{ board_name }}{% else %}Board{% endif %} — quest-board{% endblock %}
+{% block body %}
+<div class="page-wide">
+  <div class="board-header">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 id="board-title" style="display:inline">{{ board_name }}</h1>
+        <button class="btn btn-sm btn-icon" id="rename-board-btn" onclick="startRenameBoard()" title="Rename board" style="vertical-align:middle;margin-left:4px">&#9998;</button>
+        <span class="slug" id="board-slug">{{ board_slug }}</span>
+      </div>
+      <div class="flex gap-8">
+        <div class="view-toggle" id="view-toggle">
+          <button class="btn btn-sm view-btn active" data-view="kanban" onclick="switchView('kanban')">Kanban</button>
+          <button class="btn btn-sm view-btn" data-view="gantt" onclick="switchView('gantt')">Gantt</button>
+        </div>
+        <button class="btn" onclick="window.location.href='/boards'">&larr; Boards</button>
+        <button class="btn btn-danger" id="delete-board-btn" onclick="deleteBoard()">Delete Board</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="kanban" id="kanban"></div>
+</div>
+
+<!-- Card detail modal -->
+<div class="modal-overlay" id="card-modal" onclick="if(event.target===this)closePanel()">
+  <div class="modal modal-card-v2">
+    <div class="card-modal-header">
+      <div>
+        <h2 id="panel-title" style="font-size:18px;margin:0 0 2px">Card</h2>
+        <div style="color:var(--text2);font-size:13px">in list <span id="panel-list-name"></span></div>
+      </div>
+      <button class="btn btn-sm btn-icon" onclick="closePanel()" style="font-size:20px">&times;</button>
+    </div>
+    <div class="modal-body card-modal-body">
+      <div class="modal-main">
+        <div class="form-group">
+          <label>Description</label>
+          <div id="panel-description" style="min-height:60px;padding:8px;border:1px solid var(--border);border-radius:6px" contenteditable="true"
+               onblur="saveCardField('description', this.textContent)"></div>
+        </div>
+        <div class="form-group">
+          <label>Comments</label>
+          <div id="panel-comments"></div>
+          <div class="flex gap-8 mt-8">
+            <input type="text" id="comment-input" class="input" placeholder="Write a comment..." style="flex:1">
+            <button class="btn btn-primary" onclick="addComment()">Add</button>
+          </div>
+        </div>
+      </div>
+      <div class="card-modal-sidebar">
+        <div class="form-group">
+          <label>Labels</label>
+          <div id="panel-labels"></div>
+          <button class="btn btn-sm mt-4" onclick="showLabelsPicker()">+ Add Label</button>
+          <div id="labels-picker" style="display:none;margin-top:8px;padding:8px;border:1px solid var(--border);border-radius:6px;max-height:200px;overflow-y:auto"></div>
+        </div>
+        <div class="form-group">
+          <label>Due Date</label>
+          <div id="panel-due-date"></div>
+          <input type="date" id="panel-due-input" class="input input-sm" onchange="saveCardField('due_date', this.value)" style="margin-top:4px">
+        </div>
+        <div class="form-group">
+          <label>Start Date</label>
+          <div id="panel-start-date"></div>
+          <input type="date" id="panel-start-input" class="input input-sm" onchange="saveCardField('start_date', this.value)" style="margin-top:4px">
+        </div>
+        <div class="form-group">
+          <label>Members</label>
+          <div id="panel-members"></div>
+        </div>
+        <div class="form-group">
+          <label>Actions</label>
+          <div id="panel-actions" style="max-height:200px;overflow-y:auto"></div>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+        <button class="btn btn-sm btn-danger" onclick="archiveCard()">&#128451; Archive</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteCardFromPanel()" style="margin-top:4px">&#128465; Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add card modal -->
+<div class="modal-overlay" id="add-card-modal">
+  <div class="modal">
+    <h2>Add Card</h2>
+    <div class="form-group">
+      <label for="new-card-name">Name</label>
+      <input type="text" id="new-card-name" class="input" placeholder="Card name" required>
+    </div>
+    <div class="form-group">
+      <label for="new-card-desc">Description</label>
+      <textarea id="new-card-desc" class="input" placeholder="(optional)" rows="3"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('add-card-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createCard()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add list modal -->
+<div class="modal-overlay" id="add-list-modal">
+  <div class="modal">
+    <h2>Add List</h2>
+    <div class="form-group">
+      <label for="new-list-name">Name</label>
+      <input type="text" id="new-list-name" placeholder="To Do" required>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('add-list-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createList()">Add</button>
+    </div>
+  </div>
+</div>
+
+<script>
+window.__BOARD_SLUG__ = "{{ board_slug }}";
+
+let board = null;
+let lists = [];
+let boardId = null;
+let currentSlug = "{{ board_slug }}";
+let dragCard = null;
+
+async function init() {
+  const user = await requireAuth();
+  if (!user) return;
+  {% if board_slug.is_empty() %}
+  // Extract slug from /board/{slug}/{name}
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const slug = pathParts[1];
+  if (!slug) { window.location.href = '/boards'; return; }
+  currentSlug = slug;
+  {% endif %}
+  document.getElementById('nav').appendChild(navBar('board'));
+  $('#user-name').textContent = user.name;
+  await loadBoard(currentSlug);
+}
+init();
+
+// ---- Real-time SSE connection ----
+let sseTimer = null;
+function connectSSE() {
+  const es = new EventSource('/api/v1/events');
+  es.addEventListener('change', (e) => {
+    try {
+      const ev = JSON.parse(e.data);
+      if (ev.board_id && ev.board_id !== boardId) return;
+      if (!ev.board_id && !ev.card_id) return;
+      if (sseTimer) clearTimeout(sseTimer);
+      sseTimer = setTimeout(() => {
+        if (currentView === 'gantt') {
+          loadBoard().then(() => { if (currentView === 'gantt') renderGantt(); });
+        } else {
+          loadBoard();
+        }
+      }, 1000);
+    } catch (_) {}
+  });
+  es.onerror = () => {
+    console.warn('SSE connection lost, reconnecting...');
+  };
+}
+connectSSE();
+
+async function loadBoard(slug) {
+  slug = slug || currentSlug;
+  if (!slug) { window.location.href = '/boards'; return; }
+  try {
+    board = await API.getBoardBySlug(slug);
+    boardId = board.board.id;
+    currentSlug = slug;
+    $('#board-title').textContent = board.board.name;
+    $('#board-slug').textContent = board.board.slug ? '/' + board.board.slug : '';
+    lists = board.lists || [];
+    renderKanban();
+  } catch (err) {
+    showAlert('Failed to load board: ' + err.message);
+  }
+}
+
+// ---- View toggle ----
+let currentView = 'kanban';
+
+function switchView(view) {
+  currentView = view;
+  $$('.view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  if (view === 'gantt') renderGantt();
+  else renderKanban();
+}
+
+// ---- Gantt chart ----
+function renderGantt() {
+  const container = $('#kanban');
+  if (!lists || lists.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>No cards to show on Gantt chart.</p></div>';
+    return;
+  }
+
+  const allCards = [];
+  let minDate = new Date('2099-01-01');
+  let maxDate = new Date('1970-01-01');
+
+  lists.forEach(list => {
+    (list.cards || []).forEach(c => {
+      const start = c.start_date || c.created_at || null;
+      const end = c.due_date || c.updated_at || null;
+      if (!start && !end) return;
+      if (start) {
+        const d = new Date(start);
+        if (d < minDate) minDate = d;
+      }
+      if (end) {
+        const d = new Date(end);
+        if (d > maxDate) maxDate = d;
+      }
+      allCards.push({
+        id: c.id,
+        name: c.name,
+        start,
+        end,
+        listName: list.name,
+        color: c.labels && c.labels.length ? c.labels[0].color || '#4f8cff' : '#4f8cff',
+      });
+    });
+  });
+
+  if (allCards.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>No cards with dates to show on Gantt chart.</p></div>';
+    return;
+  }
+
+  const pad = 7;
+  minDate = new Date(minDate.getTime() - pad * 86400000);
+  maxDate = new Date(maxDate.getTime() + pad * 86400000);
+  const days = Math.ceil((maxDate - minDate) / 86400000) + 1;
+  if (days < 7) { maxDate = new Date(minDate.getTime() + 13 * 86400000); }
+
+  const dayWidth = Math.max(24, Math.min(60, Math.floor((container.offsetWidth - 200) / days)));
+  const pxPerDay = dayWidth;
+
+  function dateToX(d) {
+    const ref = new Date(minDate.getTime() - minDate.getTimezoneOffset() * 60000);
+    const target = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+    return Math.round((target - ref) / 86400000) * pxPerDay;
+  }
+
+  const months = [];
+  const cursor = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+  while (cursor <= maxDate) {
+    months.push(new Date(cursor));
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  let html = '<div class="gantt-chart" style="overflow-x:auto;font-size:13px;position:relative">';
+  html += '<div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg2, #f0f0f0)">';
+  html += '<div style="min-width:200px;padding:8px;font-weight:600">Task</div>';
+  html += '<div style="flex:1;position:relative">';
+  let lastMonthEnd = minDate;
+  months.forEach(m => {
+    const monthStart = new Date(Math.max(m.getTime(), minDate.getTime()));
+    const monthEnd = new Date(m.getFullYear(), m.getMonth() + 1, 0);
+    const end = monthEnd > maxDate ? maxDate : monthEnd;
+    const width = Math.max(0, dateToX(end) - dateToX(monthStart) + pxPerDay);
+    const ml = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    html += `<div style="display:inline-block;text-align:center;width:${width}px;padding:8px 0;border-right:1px solid var(--border)">${ml[m.getMonth()]}</div>`;
+    lastMonthEnd = end;
+  });
+  html += '</div></div>';
+
+  allCards.forEach((c, i) => {
+    const sx = dateToX(new Date(c.start || c.end));
+    const ex = dateToX(new Date(c.end || c.start));
+    const w = Math.max(pxPerDay, ex - sx + pxPerDay);
+    html += `<div style="display:flex;border-bottom:1px solid var(--border);${i % 2 ? 'background:var(--bg-hover, #fafafa)' : ''}">`;
+    html += `<div style="min-width:200px;padding:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.name)} <span style="color:var(--text2);font-size:11px">${esc(c.listName)}</span></div>`;
+    html += `<div style="flex:1;position:relative;padding:4px 0">`;
+    html += `<div style="position:absolute;left:${sx}px;width:${w}px;top:5px;bottom:5px;background:${c.color};border-radius:4px;padding:2px 6px;color:#fff;font-size:11px;overflow:hidden;white-space:nowrap;line-height:20px" onclick="openCard('${c.id}')" title="${esc(c.name)}">${esc(c.name)}</div>`;
+    html += '</div></div>';
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function renderKanban() {
+  const kanban = $('#kanban');
+  if (!lists || lists.length === 0) {
+    kanban.innerHTML = '<div class="kanban"><div class="empty-state"><div class="icon">&#128196;</div><p>No lists. Add one!</p></div></div>';
+    kanban.innerHTML += '<div style="margin-top:16px"><button class="btn btn-primary" onclick="showAddList()">+ Add List</button></div>';
+    return;
+  }
+
+  kanban.innerHTML = lists.map(list => `
+    <div class="column" data-list-id="${list.id}">
+      <div class="column-header">
+        <span>${esc(list.name)} <span class="count">(${(list.cards || []).length})</span></span>
+        <button class="btn btn-sm btn-icon" onclick="deleteList('${list.id}')" title="Delete list">&times;</button>
+      </div>
+      <div class="column-body" data-list-id="${list.id}"
+           ondragover="onDragOver(event)" ondrop="onDrop(event)" ondragleave="onDragLeave(event)">
+        ${(list.cards || []).map(c => `
+          <div class="kanban-card" draggable="true"
+               data-card-id="${c.id}" data-list-id="${list.id}" data-position="${c.position}"
+               ondragstart="onDragStart(event)" ondragend="onDragEnd(event)"
+               onclick="openCard('${c.id}')">
+            <h4>${esc(c.name)}</h4>
+            ${c.description ? '<div class="desc">' + esc(c.description) + '</div>' : ''}
+            ${c.labels && c.labels.length ? '<div class="labels">' + c.labels.map(l => '<span class="label-dot" style="background:' + (l.color || '#4f8cff') + '"></span>').join('') + '</div>' : ''}
+            <div class="meta-row">
+              ${c.start_date ? '<span class="date-badge date-start">&#128197; ' + esc(c.start_date) + '</span>' : ''}
+              ${c.due_date ? '<span class="date-badge ' + (c.due_date.match(/^\\d{4}-\\d{2}-\\d{2}$/) && c.due_date < new Date().toISOString().slice(0,10) && !c.is_due_completed ? 'date-overdue' : 'date-due') + '">&#128197; ' + esc(c.due_date) + (c.is_due_completed ? ' &#10003;' : '') + '</span>' : ''}
+              ${c.comment_count ? '<span>&#128172; ' + c.comment_count + '</span>' : ''}
+              ${c.checklist_total ? '<span>&#9744; ' + (c.checklist_done || 0) + '/' + c.checklist_total + '</span>' : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="column-footer">
+        <button class="btn btn-sm" style="width:100%" onclick="showAddCard('${list.id}')">+ Add Card</button>
+      </div>
+    </div>
+  `).join('') + `
+    <div class="column" style="min-width:200px;border:2px dashed var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="showAddList()">
+      <span style="color:var(--text2)">+ Add List</span>
+    </div>
+  `;
+}
+
+// Drag and drop
+function onDragStart(e) {
+  dragCard = { id: e.target.dataset.cardId, listId: e.target.dataset.listId };
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', e.target.dataset.cardId);
+}
+
+function onDragEnd(e) {
+  e.target.classList.remove('dragging');
+  $$('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  dragCard = null;
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const col = e.currentTarget;
+  if (!col.classList.contains('drag-over')) col.classList.add('drag-over');
+}
+
+function onDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+async function onDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const targetListId = e.currentTarget.dataset.listId;
+  if (!dragCard || dragCard.listId === targetListId) return;
+
+  const cardEls = e.currentTarget.querySelectorAll('.kanban-card');
+  let position;
+  if (cardEls.length === 0) {
+    position = 1000;
+  } else {
+    const dropY = e.clientY;
+    let beforeCard = null;
+    for (const card of cardEls) {
+      const rect = card.getBoundingClientRect();
+      if (dropY < rect.top + rect.height / 2) {
+        beforeCard = card;
+        break;
+      }
+    }
+    if (beforeCard) {
+      const prevCard = beforeCard.previousElementSibling;
+      const prevPos = prevCard ? parseFloat(prevCard.dataset.position) : 0;
+      const nextPos = parseFloat(beforeCard.dataset.position);
+      position = (prevPos + nextPos) / 2;
+    } else {
+      const lastCard = cardEls[cardEls.length - 1];
+      position = parseFloat(lastCard.dataset.position) + 1000;
+    }
+  }
+
+  try {
+    await API.moveCard(dragCard.id, { list_id: targetListId, position });
+    await loadBoard();
+  } catch (err) { showAlert(err.message); }
+}
+
+// ---- Card detail modal ----
+let currentCard = null;
+
+async function openCard(cardId) {
+  try {
+    currentCard = await API.getCard(cardId);
+    renderCardModal(currentCard);
+    openPanel();
+  } catch (err) { showAlert(err.message); }
+}
+
+function openPanel() { $('#card-modal').classList.add('open'); }
+function closePanel() { $('#card-modal').classList.remove('open'); currentCard = null; }
+
+function renderCardModal(card) {
+  $('#panel-title').textContent = card.name;
+  const list = lists.find(l => l.id === card.list_id);
+  $('#panel-list-name').textContent = list ? list.name : '';
+  $('#panel-description').textContent = card.description || '';
+  $('#panel-due-date').innerHTML = card.due_date ? `<span class="date-badge">&#128197; ${esc(card.due_date)}</span>` : 'Not set';
+  $('#panel-due-input').value = card.due_date || '';
+  $('#panel-start-date').innerHTML = card.start_date ? `<span class="date-badge">&#128197; ${esc(card.start_date)}</span>` : 'Not set';
+  $('#panel-start-input').value = card.start_date || '';
+
+  // Labels
+  const labels = card.labels || [];
+  $('#panel-labels').innerHTML = labels.length
+    ? labels.map(l => `<span class="label-tag" style="background:${l.color || '#4f8cff'}20;border:1px solid ${l.color || '#4f8cff'};color:${l.color || '#4f8cff'}">${esc(l.name)} <button class="btn btn-sm btn-icon" onclick="removeLabelFromCard('${l.id}')" style="color:inherit">&times;</button></span>`).join(' ')
+    : '<span style="color:var(--text2);font-size:13px">None</span>';
+
+  // Members
+  const members = card.members || [];
+  $('#panel-members').innerHTML = members.length
+    ? members.map(m => `<div style="display:flex;align-items:center;gap:4px;padding:2px 0"><span>${esc(m.name)}</span> <button class="btn btn-sm btn-icon" onclick="removeMemberFromCard('${m.id}')">&times;</button></div>`).join('')
+    : '<span style="color:var(--text2);font-size:13px">None</span>';
+
+  // Comments
+  renderComments(card);
+  // Actions
+  renderActions(card);
+  // Attachments
+  renderAttachments(card);
+  // Task lists
+  renderTaskLists(card);
+}
+
+async function saveCardField(field, value) {
+  if (!currentCard) return;
+  try {
+    const data = {};
+    data[field] = value || null;
+    await API.updateCard(currentCard.id, data);
+    currentCard[field] = value;
+  } catch (err) { showAlert(err.message); }
+}
+
+async function removeMemberFromCard(userId) {
+  if (!currentCard) return;
+  try {
+    await API.removeCardMember(currentCard.id, { user_id: userId });
+    currentCard = await API.getCard(currentCard.id);
+    renderCardModal(currentCard);
+  } catch (err) { showAlert(err.message); }
+}
+
+async function removeLabelFromCard(labelId) {
+  if (!currentCard) return;
+  try {
+    await API.removeCardLabel(currentCard.id, { label_id: labelId });
+    currentCard = await API.getCard(currentCard.id);
+    renderCardModal(currentCard);
+  } catch (err) { showAlert(err.message); }
+}
+
+async function showLabelsPicker() {
+  if (!currentCard) return;
+  try {
+    const allLabels = await API.listBoardLabels(boardId);
+    const cardLabelIds = (currentCard.labels || []).map(l => l.id);
+    const picker = $('#labels-picker');
+    picker.innerHTML = allLabels.map(l => {
+      const has = cardLabelIds.includes(l.id);
+      return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;cursor:pointer" onclick="toggleCardLabel('${l.id}', ${has})">
+        <span class="label-dot" style="background:${l.color || '#4f8cff'}"></span>
+        <span style="flex:1">${esc(l.name)}</span>
+        <span>${has ? '&#10003;' : '+'}</span>
+      </div>`;
+    }).join('');
+    picker.style.display = 'block';
+  } catch (err) { showAlert(err.message); }
+}
+
+async function toggleCardLabel(labelId, has) {
+  if (!currentCard) return;
+  try {
+    if (has) {
+      await API.removeCardLabel(currentCard.id, { label_id: labelId });
+    } else {
+      await API.addCardLabel(currentCard.id, { label_id: labelId });
+    }
+    currentCard = await API.getCard(currentCard.id);
+    renderCardModal(currentCard);
+  } catch (err) { showAlert(err.message); }
+}
+
+function renderComments(card) {
+  const comments = card.comments || [];
+  $('#panel-comments').innerHTML = comments.length
+    ? comments.map(c => `<div class="comment"><div class="comment-header"><strong>${esc(c.user_name || 'User')}</strong> <span class="text-sm" style="color:var(--text2)">${esc(c.created_at)}</span></div><div>${esc(c.body)}</div></div>`).join('')
+    : '<p style="color:var(--text2);font-size:13px">No comments yet.</p>';
+}
+
+async function addComment() {
+  if (!currentCard) return;
+  const body = $('#comment-input').value.trim();
+  if (!body) return;
+  try {
+    await API.createComment({ card_id: currentCard.id, body });
+    $('#comment-input').value = '';
+    currentCard = await API.getCard(currentCard.id);
+    renderComments(currentCard);
+  } catch (err) { showAlert(err.message); }
+}
+
+function renderActions(card) {
+  const actions = card.actions || [];
+  const icons = { moveCard: '&#10145;', createCard: '&#128196;', updateCard: '&#9998;' };
+  $('#panel-actions').innerHTML = actions.length
+    ? actions.map(a => `<div class="action-row"><strong>${esc(a.user_name || 'User')}</strong> ${icons[a.action_type] || '&#8226;'} <span>${esc(a.action_type)}</span><br><span class="text-sm" style="color:var(--text2)">${esc(a.created_at)}</span></div>`).join('')
+    : '<span style="color:var(--text2);font-size:13px">No activity yet.</span>';
+}
+
+function renderAttachments(card) {
+  // Attachments rendered inline if available
+}
+
+function renderTaskLists(card) {
+  // Task lists rendered inline if available
+}
+
+async function archiveCard() {
+  if (!currentCard || !confirm('Archive this card?')) return;
+  try {
+    await API.updateCard(currentCard.id, { is_archived: true });
+    closePanel();
+    await loadBoard();
+  } catch (err) { showAlert(err.message); }
+}
+
+async function deleteCardFromPanel() {
+  if (!currentCard || !confirm('Delete this card? This cannot be undone.')) return;
+  try {
+    await API.deleteCard(currentCard.id);
+    closePanel();
+    await loadBoard();
+  } catch (err) { showAlert(err.message); }
+}
+
+function showAddCard(listId) {
+  $('#new-card-name').value = '';
+  $('#new-card-desc').value = '';
+  $('#new-card-name').dataset.listId = listId;
+  openModal('add-card-modal');
+  $('#new-card-name').focus();
+}
+
+async function createCard() {
+  const name = $('#new-card-name').value.trim();
+  const listId = $('#new-card-name').dataset.listId;
+  const desc = $('#new-card-desc').value.trim();
+  if (!name) return;
+  try {
+    const data = { list_id: listId, name };
+    if (desc) data.description = desc;
+    await API.createCard(data);
+    closeModal('add-card-modal');
+    await loadBoard();
+  } catch (err) { showAlert(err.message); }
+}
+
+// Add list
+function showAddList() {
+  $('#new-list-name').value = '';
+  openModal('add-list-modal');
+  $('#new-list-name').focus();
+}
+
+async function createList() {
+  const name = $('#new-list-name').value.trim();
+  if (!name) return;
+  try {
+    await API.createList({ board_id: boardId, name });
+    closeModal('add-list-modal');
+    await loadBoard();
+  } catch (err) { showAlert(err.message); }
+}
+
+async function deleteList(listId) {
+  if (!confirm('Delete this list and all its cards?')) return;
+  showAlert('Delete list not directly supported via API', 'info');
+}
+
+async function deleteBoard() {
+  if (!confirm('Delete this entire board? This cannot be undone.')) return;
+  try {
+    await API.deleteBoard(boardId);
+    window.location.href = '/boards';
+  } catch (err) { showAlert(err.message); }
+}
+
+// ── Board rename ──────────────────────────────────────────────
+let renameOrigName = '';
+
+function startRenameBoard() {
+  const title = $('#board-title');
+  renameOrigName = title.textContent;
+  title.innerHTML = '<input type="text" id="rename-input" class="input" style="font-size:18px;font-weight:700;padding:4px 8px" value="' + esc(renameOrigName) + '">'
+    + ' <button class="btn btn-sm btn-primary" onclick="saveRenameBoard()">Save</button>'
+    + ' <button class="btn btn-sm" onclick="cancelRenameBoard()">Cancel</button>';
+  const input = $('#rename-input');
+  input.focus();
+  input.select();
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') saveRenameBoard();
+    if (e.key === 'Escape') cancelRenameBoard();
+  });
+}
+
+function cancelRenameBoard() {
+  $('#board-title').textContent = renameOrigName;
+}
+
+async function saveRenameBoard() {
+  const name = $('#rename-input').value.trim();
+  if (!name || name === renameOrigName) { cancelRenameBoard(); return; }
+  try {
+    await API.updateBoard(boardId, { name });
+    await loadBoard();
+  } catch (err) { showAlert(err.message); cancelRenameBoard(); }
+}
+
+function openModal(id) { $(`#${id}`).classList.add('open'); }
+function closeModal(id) { $(`#${id}`).classList.remove('open'); }
+function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+</script>
+{% endblock %}
