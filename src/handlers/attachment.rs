@@ -4,7 +4,7 @@ use axum::{Json, Router};
 use std::sync::Arc;
 
 use crate::error::AppError;
-use crate::repository;
+use crate::services::AttachmentService;
 use crate::AppState;
 
 pub fn router() -> Router<Arc<AppState>> {
@@ -21,7 +21,6 @@ async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppErr
     uuid::Uuid::parse_str(&uid).map_err(|_| AppError::Internal("invalid user id".into()))
 }
 
- 
 async fn list_attachments(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -29,11 +28,11 @@ async fn list_attachments(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
     let card_id: uuid::Uuid = card_id.parse().map_err(|_| AppError::BadRequest("invalid card_id".into()))?;
-    let attachments = repository::attachment_repo::list_by_card(&state.db, &card_id).await?;
+    let svc = AttachmentService::new(state.db.clone());
+    let attachments = svc.list_by_card(&card_id).await?;
     Ok(Json(serde_json::json!(attachments)))
 }
 
- 
 async fn create_link_attachment(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -45,7 +44,8 @@ async fn create_link_attachment(
     let name = req["name"].as_str().unwrap_or("link");
     let url = req["url"].as_str().ok_or(AppError::BadRequest("url required".into()))?;
 
-    let attachment = repository::attachment_repo::create_link(&state.db, &card_id, &uid, name, url).await?;
+    let svc = AttachmentService::new(state.db.clone());
+    let attachment = svc.create_link(&card_id, &uid, name, url).await?;
     Ok(Json(serde_json::json!(attachment)))
 }
 
@@ -56,6 +56,7 @@ async fn delete_attachment(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(&session).await?;
     let attachment_id: uuid::Uuid = attachment_id.parse().map_err(|_| AppError::BadRequest("invalid attachment_id".into()))?;
-    repository::attachment_repo::delete(&state.db, &attachment_id).await?;
+    let svc = AttachmentService::new(state.db.clone());
+    svc.delete(&attachment_id).await?;
     Ok(Json(serde_json::json!({"ok": true})))
 }
