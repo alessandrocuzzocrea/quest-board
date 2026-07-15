@@ -25,4 +25,16 @@ impl AttachmentService {
     pub async fn delete(&self, attachment_id: &Uuid) -> Result<(), AppError> {
         repository::attachment_repo::delete(&self.db, attachment_id).await
     }
+
+    pub async fn create_file(
+        &self,
+        card_id: &Uuid,
+        user_id: &Uuid,
+        name: &str,
+        file_path: &str,
+        size: i64,
+        mime_type: &str,
+    ) -> Result<Attachment, AppError> {
+        repository::attachment_repo::create_file(&self.db, card_id, user_id, name, file_path, size, mime_type).await
+    }
 }
