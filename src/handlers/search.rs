@@ -8,7 +8,7 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 use crate::error::AppError;
-use crate::models::board::Board;
+use crate::services::SearchService;
 use crate::AppState;
 
 #[derive(Debug, Deserialize)]
@@ -31,71 +31,25 @@ async fn search(
         .ok_or(AppError::Unauthorized("not logged in".into()))?;
     let uid = uuid::Uuid::parse_str(&user_id).map_err(|_| AppError::Internal("invalid user id".into()))?;
 
-    let pattern = format!("%{}%", query.q);
+    let svc = SearchService::new(state.db.clone());
     let is_htmx = headers.contains_key("HX-Request");
 
     if is_htmx {
         // HTMX path: return HTML partial with board cards
-        let boards: Vec<Board> = sqlx::query_as(
-            "SELECT DISTINCT b.* FROM boards b
-             LEFT JOIN board_members bm ON b.id = bm.board_id AND bm.user_id = $1
-             WHERE b.name LIKE $2 AND (b.created_by = $3 OR bm.user_id = $4)
-             ORDER BY b.name
-             LIMIT 10",
-        )
-        .bind(uid)
-        .bind(&pattern)
-        .bind(uid)
-        .bind(uid)
-        .fetch_all(&state.db)
-        .await?;
-
+        let boards = svc.search_boards(&uid, &query.q).await?;
         let template = crate::BoardGridTemplate { boards, query: query.q };
         Ok(Html(template.render().map_err(|e| AppError::Internal(e.to_string()))?).into_response())
     } else {
         // JSON API path: return cards and boards as JSON
-        let cards: Vec<serde_json::Value> = sqlx::query_as::<_, (uuid::Uuid, String, uuid::Uuid, String, f64)>(
-            "SELECT c.id, c.name, c.board_id, l.name as list_name, c.position
-             FROM cards c
-             JOIN lists l ON c.list_id = l.id
-             JOIN boards b ON c.board_id = b.id
-             LEFT JOIN board_members bm ON b.id = bm.board_id AND bm.user_id = $1
-             WHERE (c.name LIKE $2 OR c.description LIKE $3)
-               AND (b.created_by = $4 OR bm.user_id = $5)
-             ORDER BY c.position
-             LIMIT 20",
-        )
-        .bind(uid)
-        .bind(&pattern)
-        .bind(&pattern)
-        .bind(uid)
-        .bind(uid)
-        .fetch_all(&state.db)
-        .await?
-        .into_iter()
-        .map(|(id, name, board_id, list_name, _pos)| {
-            serde_json::json!({"id": id, "name": name, "board_id": board_id, "list_name": list_name})
-        })
-        .collect();
+        let cards = svc.search_cards(&uid, &query.q).await?;
+        let boards_json: Vec<serde_json::Value> = {
+            // Reuse search_boards but map to flat JSON for API compat
+            let boards = svc.search_boards(&uid, &query.q).await?;
+            boards.into_iter().map(|b| {
+                serde_json::json!({"id": b.id, "name": b.name})
+            }).collect()
+        };
 
-        let boards: Vec<serde_json::Value> = sqlx::query_as::<_, (uuid::Uuid, String)>(
-            "SELECT DISTINCT b.id, b.name
-             FROM boards b
-             LEFT JOIN board_members bm ON b.id = bm.board_id AND bm.user_id = $1
-             WHERE b.name LIKE $2 AND (b.created_by = $3 OR bm.user_id = $4)
-             ORDER BY b.name
-             LIMIT 10",
-        )
-        .bind(uid)
-        .bind(&pattern)
-        .bind(uid)
-        .bind(uid)
-        .fetch_all(&state.db)
-        .await?
-        .into_iter()
-        .map(|(id, name)| serde_json::json!({"id": id, "name": name}))
-        .collect();
-
-        Ok(Json(serde_json::json!({"cards": cards, "boards": boards})).into_response())
+        Ok(Json(serde_json::json!({"cards": cards, "boards": boards_json})).into_response())
     }
 }
