@@ -72,14 +72,16 @@ async fn get_card(
     let checklists = repository::checklist_repo::list_by_card(&state.db, &card_id).await?;
     let actions = repository::action_repo::list_by_card(&state.db, &card_id).await?;
 
-    Ok(Json(serde_json::json!({
-        "card": card,
-        "members": members,
-        "labels": labels,
-        "comments": comments,
-        "checklists": checklists,
-        "actions": actions,
-    })))
+    // Merge card fields with related data at top level
+    let card_json = serde_json::to_value(&card).unwrap();
+    let mut merged = card_json.as_object().unwrap().clone();
+    merged.insert("members".into(), serde_json::to_value(&members).unwrap());
+    merged.insert("labels".into(), serde_json::to_value(&labels).unwrap());
+    merged.insert("comments".into(), serde_json::to_value(&comments).unwrap());
+    merged.insert("checklists".into(), serde_json::to_value(&checklists).unwrap());
+    merged.insert("actions".into(), serde_json::to_value(&actions).unwrap());
+
+    Ok(Json(serde_json::Value::Object(merged)))
 }
 
  
