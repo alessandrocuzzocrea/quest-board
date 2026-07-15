@@ -15,6 +15,7 @@ pub async fn run_migrations(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
         include_str!("../../migrations/004_email_to_username.sql"),
         include_str!("../../migrations/005_card_start_date.sql"),
         include_str!("../../migrations/006_remove_user_name.sql"),
+        include_str!("../../migrations/007_attachment_size_bigint.sql"),
     ] {
         for statement in sql.split(';') {
             let stmt = statement.trim();
