@@ -256,3 +256,52 @@ async fn test_board_service_list_accessible() {
     let other_boards = svc.list_accessible(&other_id).await.unwrap();
     assert!(other_boards.is_empty(), "other user should not see the board");
 }
+
+#[tokio::test]
+async fn test_list_service_create_and_get() {
+    let ta = setup().await;
+    let cookie = register(&ta.app, "listest").await;
+
+    // Create a board (gets default lists: To Do, In Progress, Done)
+    let req = axum::http::Request::builder()
+        .method("POST").uri("/api/v1/boards")
+        .header("content-type", "application/json")
+        .header("cookie", &cookie)
+        .body(axum::body::Body::from(r#"{"name":"List Test Board"}"#)).unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let board: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let board_id: uuid::Uuid = board["id"].as_str().unwrap().parse().unwrap();
+
+    // ListService: get the default lists
+    let (event_tx, _rx) = quest_board::events::channel();
+    let svc = quest_board::services::ListService::new(ta._pool.clone(), event_tx);
+
+    // Default lists should exist via raw query
+    let lists: Vec<quest_board::models::list::List> = sqlx::query_as(
+        "SELECT * FROM lists WHERE board_id = $1 ORDER BY position",
+    )
+    .bind(&board_id)
+    .fetch_all(&ta._pool)
+    .await
+    .unwrap();
+    assert_eq!(lists.len(), 3, "default lists: To Do, In Progress, Done");
+
+    // Create a new list via service
+    let uid: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE username = $1")
+        .bind("listest")
+        .fetch_one(&ta._pool)
+        .await
+        .unwrap();
+    let create_req = quest_board::models::list::CreateListRequest {
+        board_id,
+        name: Some("New List".into()),
+    };
+    let new_list = svc.create(&create_req, &uid).await.unwrap();
+    assert_eq!(new_list.name.as_deref(), Some("New List"));
+
+    // Get list with cards via service
+    let (list, cards) = svc.get_with_cards(&new_list.id).await.unwrap();
+    assert_eq!(list.id, new_list.id);
+    assert!(cards.is_empty(), "new list should have no cards");
+}
