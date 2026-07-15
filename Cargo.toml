@@ -48,6 +48,9 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "coo
 rpassword = "7"
 dirs = "6"
 
+utoipa = { version = "5", features = ["axum_extras", "uuid", "chrono", "time", "yaml"] }
+utoipa-swagger-ui = { version = "9", features = ["axum"] }
+
 [[bin]]
 name = "qb"
 path = "src/cli.rs"

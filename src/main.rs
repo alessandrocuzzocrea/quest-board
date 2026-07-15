@@ -1,3 +1,4 @@
+use utoipa::OpenApi;
 use std::sync::Arc;
 
 #[tokio::main]
@@ -29,6 +30,12 @@ async fn main() {
     });
 
     let app = quest_board::build_app(pool, state).await;
+
+    // Generate OpenAPI spec
+    if let Ok(yaml) = quest_board::ApiDoc::openapi().to_yaml() {
+        let _ = std::fs::write("openapi.yaml", &yaml);
+        tracing::info!("openapi.yaml written ({} bytes)", yaml.len());
+    }
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3001").await.unwrap();
     tracing::info!("listening on http://0.0.0.0:3001");

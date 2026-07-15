@@ -22,6 +22,16 @@ async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppErr
     uuid::Uuid::parse_str(&uid).map_err(|_| AppError::Internal("invalid user id".into()))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/comments/card/{card_id}",
+    tag = "comments",
+    params(("card_id" = String, Path)),
+    responses(
+        (status = 200, description = "List of comments", body = serde_json::Value)
+    )
+)]
+
 async fn list_comments(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -34,6 +44,16 @@ async fn list_comments(
     Ok(Json(serde_json::json!(comments)))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/comments",
+    tag = "comments",
+    request_body = CreateCommentRequest,
+    responses(
+        (status = 200, description = "Comment created", body = serde_json::Value)
+    )
+)]
+
 async fn create_comment(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -44,6 +64,17 @@ async fn create_comment(
     let comment = svc.create(&req, &uid).await?;
     Ok(Json(serde_json::json!(comment)))
 }
+
+#[utoipa::path(
+    put,
+    path = "/api/v1/comments/{id}",
+    tag = "comments",
+    params(("id" = String, Path)),
+    request_body = UpdateCommentRequest,
+    responses(
+        (status = 200, description = "Comment updated", body = serde_json::Value)
+    )
+)]
 
 async fn update_comment(
     State(state): State<Arc<AppState>>,
@@ -57,6 +88,16 @@ async fn update_comment(
     let comment = svc.update(&comment_id, &req, &uid).await?;
     Ok(Json(serde_json::json!(comment)))
 }
+
+#[utoipa::path(
+    delete,
+    path = "/api/v1/comments/{id}",
+    tag = "comments",
+    params(("id" = String, Path)),
+    responses(
+        (status = 200, description = "Comment deleted", body = serde_json::Value)
+    )
+)]
 
 async fn delete_comment(
     State(state): State<Arc<AppState>>,

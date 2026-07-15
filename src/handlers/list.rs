@@ -21,6 +21,16 @@ async fn user_id(session: &tower_sessions::Session) -> Result<uuid::Uuid, AppErr
     uuid::Uuid::parse_str(&uid).map_err(|_| AppError::Internal("invalid user id".into()))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/lists",
+    tag = "lists",
+    request_body = CreateListRequest,
+    responses(
+        (status = 200, description = "List created", body = serde_json::Value)
+    )
+)]
+
 async fn create_list(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -31,6 +41,16 @@ async fn create_list(
     let list = svc.create(&req, &uid).await?;
     Ok(Json(serde_json::json!(list)))
 }
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/lists/{id}",
+    tag = "lists",
+    params(("id" = String, Path)),
+    responses(
+        (status = 200, description = "List retrieved", body = serde_json::Value)
+    )
+)]
 
 async fn get_list(
     State(state): State<Arc<AppState>>,
@@ -44,6 +64,17 @@ async fn get_list(
     Ok(Json(serde_json::json!({"list": list, "cards": cards})))
 }
 
+#[utoipa::path(
+    put,
+    path = "/api/v1/lists/{id}",
+    tag = "lists",
+    params(("id" = String, Path)),
+    request_body = UpdateListRequest,
+    responses(
+        (status = 200, description = "List updated", body = serde_json::Value)
+    )
+)]
+
 async fn update_list(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -56,6 +87,16 @@ async fn update_list(
     let list = svc.update(&list_id, &req, &uid).await?;
     Ok(Json(serde_json::json!(list)))
 }
+
+#[utoipa::path(
+    delete,
+    path = "/api/v1/lists/{id}",
+    tag = "lists",
+    params(("id" = String, Path)),
+    responses(
+        (status = 200, description = "List deleted", body = serde_json::Value)
+    )
+)]
 
 async fn delete_list(
     State(state): State<Arc<AppState>>,

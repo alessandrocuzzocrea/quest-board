@@ -16,6 +16,7 @@ use axum::{
     response::{Html, IntoResponse, Redirect},
 };
 use tower_http::services::fs::ServeDir;
+use utoipa::OpenApi;
 
 use std::sync::Arc;
 use tower_sessions::cookie::SameSite;
@@ -26,6 +27,107 @@ pub struct AppState {
     pub db: sqlx::PgPool,
     pub event_tx: tokio::sync::broadcast::Sender<events::SseEvent>,
 }
+
+#[derive(utoipa::OpenApi)]
+#[openapi(
+    paths(
+        crate::handlers::auth::register,
+        crate::handlers::auth::login,
+        crate::handlers::auth::me,
+        crate::handlers::auth::update_name,
+        crate::handlers::auth::change_password,
+        crate::handlers::board::list_boards,
+        crate::handlers::board::create_board,
+        crate::handlers::board::get_board,
+        crate::handlers::board::update_board,
+        crate::handlers::board::delete_board,
+        crate::handlers::board::get_board_by_slug,
+        crate::handlers::card::create_card,
+        crate::handlers::card::get_card,
+        crate::handlers::card::update_card,
+        crate::handlers::card::delete_card,
+        crate::handlers::card::move_card,
+        crate::handlers::list::create_list,
+        crate::handlers::list::get_list,
+        crate::handlers::list::update_list,
+        crate::handlers::list::delete_list,
+        crate::handlers::comment::list_comments,
+        crate::handlers::comment::create_comment,
+        crate::handlers::comment::update_comment,
+        crate::handlers::comment::delete_comment,
+        crate::handlers::label::list_labels,
+        crate::handlers::label::create_label,
+        crate::handlers::label::update_label,
+        crate::handlers::label::delete_label,
+        crate::handlers::favorite::list_favorites,
+        crate::handlers::favorite::create_favorite,
+        crate::handlers::favorite::delete_favorite,
+        crate::handlers::attachment::list_attachments,
+        crate::handlers::attachment::create_link_attachment,
+        crate::handlers::attachment::delete_attachment,
+        crate::handlers::search::search,
+        crate::handlers::health::health_check,
+        crate::handlers::api_key::list_api_keys,
+        crate::handlers::api_key::create_api_key,
+        crate::handlers::api_key::delete_api_key,
+    ),
+    components(
+        schemas(
+            crate::models::user::User,
+            crate::models::user::RegisterRequest,
+            crate::models::user::LoginRequest,
+            crate::models::user::UpdateNameRequest,
+            crate::models::user::ChangePasswordRequest,
+            crate::models::user::UserResponse,
+            crate::models::board::Board,
+            crate::models::board::CreateBoardRequest,
+            crate::models::board::UpdateBoardRequest,
+            crate::models::card::Card,
+            crate::models::card::CreateCardRequest,
+            crate::models::card::UpdateCardRequest,
+            crate::models::card::MoveCardRequest,
+            crate::models::card::CardWithMembers,
+            crate::models::list::List,
+            crate::models::list::CreateListRequest,
+            crate::models::list::UpdateListRequest,
+            crate::models::list::ListWithCards,
+            crate::models::comment::Comment,
+            crate::models::comment::CreateCommentRequest,
+            crate::models::comment::UpdateCommentRequest,
+            crate::models::comment::CommentWithUser,
+            crate::models::label::Label,
+            crate::models::label::CreateLabelRequest,
+            crate::models::label::UpdateLabelRequest,
+            crate::models::favorite::Favorite,
+            crate::models::favorite::CreateFavoriteRequest,
+            crate::models::attachment::Attachment,
+            crate::models::api_key::ApiKey,
+            crate::models::api_key::CreateApiKeyRequest,
+            crate::models::api_key::ApiKeyResponse,
+            crate::models::checklist::TaskList,
+            crate::models::checklist::Task,
+            crate::models::checklist::TaskListWithTasks,
+            crate::models::checklist::CreateTaskListRequest,
+            crate::models::checklist::CreateTaskRequest,
+            crate::models::checklist::UpdateTaskRequest,
+            crate::models::action::Action,
+        )
+    ),
+    tags(
+        (name = "auth", description = "Authentication and user management"),
+        (name = "boards", description = "Board management"),
+        (name = "cards", description = "Card management"),
+        (name = "lists", description = "List management"),
+        (name = "comments", description = "Comment management"),
+        (name = "labels", description = "Label management"),
+        (name = "favorites", description = "Favorite board/card management"),
+        (name = "attachments", description = "Link attachment management"),
+        (name = "search", description = "Search boards and cards"),
+        (name = "health", description = "Health check"),
+        (name = "api-keys", description = "API key management"),
+    )
+)]
+pub struct ApiDoc;
 
 // Known app pages that require authentication (both clean and .html forms)
 const PROTECTED_PATHS: &[&str] = &[
@@ -56,7 +158,6 @@ async fn require_auth_for_html(
     let session = request.extensions()
         .get::<tower_sessions::Session>()
         .cloned();
-    
     match session {
         Some(session) => {
             match session.get::<String>("user_id").await {
@@ -169,6 +270,7 @@ pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router
         .route("/settings", get(page_settings))
         .route("/settings.html", get(page_settings_html))
         .nest("/api/v1", api)
+        .merge(utoipa_swagger_ui::SwaggerUi::new("/api-docs").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .fallback_service(tower::service_fn(static_or_redirect))
         .layer(middleware::from_fn(require_auth_for_html))
         .layer(session_layer)

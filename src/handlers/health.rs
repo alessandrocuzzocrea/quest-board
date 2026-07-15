@@ -13,7 +13,7 @@ static START_TIME: AtomicU64 = AtomicU64::new(0);
 
 pub fn router() -> Router<Arc<AppState>> {
     START_TIME.compare_exchange(0, epoch_secs(), Ordering::Relaxed, Ordering::Relaxed).ok();
-    Router::new().route("/", get(health))
+    Router::new().route("/", get(health_check))
 }
 
 fn epoch_secs() -> u64 {
@@ -40,7 +40,8 @@ async fn db_stats(pool: &PgPool) -> serde_json::Value {
     })
 }
 
-async fn health(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+#[utoipa::path(get, path = "/api/v1/health", tag = "health", responses((status = 200, body = serde_json::Value)))]
+async fn health_check(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     let started = START_TIME.load(Ordering::Relaxed);
     let uptime = if started > 0 { epoch_secs().saturating_sub(started) } else { 0 };
 

@@ -16,6 +16,7 @@ pub fn router() -> Router<Arc<AppState>> {
 }
 
 /// GET /api/v1/api-keys — lists all API keys for the authenticated user.
+#[utoipa::path(get, path = "/api/v1/api-keys", tag = "api-keys", responses((status = 200, body = serde_json::Value)))]
 async fn list_api_keys(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -30,6 +31,15 @@ async fn list_api_keys(
 /// POST /api/v1/api-keys — creates a new API key.
 ///
 /// Returns the key metadata along with the raw token (shown only once).
+#[utoipa::path(
+    post,
+    path = "/api/v1/api-keys",
+    tag = "api-keys",
+    request_body = CreateApiKeyRequest,
+    responses(
+        (status = 200, body = serde_json::Value)
+    )
+)]
 async fn create_api_key(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
@@ -46,6 +56,15 @@ async fn create_api_key(
 }
 
 /// DELETE /api/v1/api-keys/{id} — soft-deletes (deactivates) an API key.
+#[utoipa::path(
+    delete,
+    path = "/api/v1/api-keys/{id}",
+    tag = "api-keys",
+    params(("id" = String, Path)),
+    responses(
+        (status = 200, body = serde_json::Value)
+    )
+)]
 async fn delete_api_key(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
