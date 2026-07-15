@@ -12,3 +12,5 @@ pub mod favorite_service;
 pub use favorite_service::FavoriteService;
 pub mod api_key_service;
 pub use api_key_service::ApiKeyService;
+pub mod card_service;
+pub use card_service::CardService;
