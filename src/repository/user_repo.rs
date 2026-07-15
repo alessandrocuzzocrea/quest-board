@@ -20,33 +20,21 @@ pub async fn create(
     pool: &sqlx::PgPool,
     username: &str,
     password_hash: &str,
-    name: &str,
 ) -> Result<User, AppError> {
     Ok(sqlx::query_as(
-        "INSERT INTO users (username, password_hash, name) VALUES ($1, $2, $3) RETURNING *",
+        "INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING *",
     )
     .bind(username)
     .bind(password_hash)
-    .bind(name)
     .fetch_one(pool)
     .await?)
 }
 
 pub async fn list_all(pool: &sqlx::PgPool) -> Result<Vec<UserResponse>, AppError> {
-    let users: Vec<User> = sqlx::query_as("SELECT * FROM users ORDER BY name")
+    let users: Vec<User> = sqlx::query_as("SELECT * FROM users ORDER BY username")
         .fetch_all(pool)
         .await?;
     Ok(users.into_iter().map(Into::into).collect())
-}
-
-pub async fn update_name(pool: &sqlx::PgPool, id: &Uuid, name: &str) -> Result<User, AppError> {
-    Ok(sqlx::query_as(
-        "UPDATE users SET name = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
-    )
-    .bind(name)
-    .bind(id)
-    .fetch_one(pool)
-    .await?)
 }
 
 pub async fn update_password(pool: &sqlx::PgPool, id: &Uuid, password_hash: &str) -> Result<(), AppError> {

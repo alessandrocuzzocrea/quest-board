@@ -48,7 +48,7 @@ async fn register(app: &axum::Router) -> String {
         .uri("/api/v1/auth/register")
         .header("content-type", "application/json")
         .body(axum::body::Body::from(
-            r#"{"username":"testuser","password":"secret","name":"Test User"}"#,
+            r#"{"username":"testuser","password":"secret"}"#,
         ))
         .unwrap();
 
@@ -457,7 +457,6 @@ async fn test_settings_html_contains_sections() {
     let html = String::from_utf8(body.to_vec()).unwrap();
 
     assert!(html.contains("settings-section"), "settings must have section containers");
-    assert!(html.contains("updateProfile"), "settings must have profile update form");
     assert!(html.contains("changePassword"), "settings must have password change form");
     assert!(html.contains("api-keys"), "settings must have API keys section");
 }

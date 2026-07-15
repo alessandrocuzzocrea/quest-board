@@ -11,7 +11,6 @@ pub struct User {
     #[serde(skip_serializing)]
     #[ts(skip)]
     pub password_hash: String,
-    pub name: String,
     pub role: String,
     pub created_at: String,
     pub updated_at: String,
@@ -22,7 +21,6 @@ pub struct User {
 pub struct RegisterRequest {
     pub username: String,
     pub password: String,
-    pub name: String,
 }
 
 #[derive(Debug, Deserialize, TS, utoipa::ToSchema)]
@@ -34,24 +32,16 @@ pub struct LoginRequest {
 
 #[derive(Debug, Deserialize, TS, utoipa::ToSchema)]
 #[ts(export)]
-pub struct UpdateNameRequest {
-    pub name: String,
-}
-
-#[derive(Debug, Deserialize, TS, utoipa::ToSchema)]
-#[ts(export)]
 pub struct ChangePasswordRequest {
-    pub old_password: String,
+    pub current_password: String,
     pub new_password: String,
 }
-
 
 #[derive(Debug, Serialize, TS, utoipa::ToSchema)]
 #[ts(export)]
 pub struct UserResponse {
     pub id: Uuid,
     pub username: String,
-    pub name: String,
     pub role: String,
 }
 
@@ -60,7 +50,6 @@ impl From<User> for UserResponse {
         UserResponse {
             id: u.id,
             username: u.username,
-            name: u.name,
             role: u.role,
         }
     }

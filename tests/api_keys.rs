@@ -38,7 +38,7 @@ async fn setup() -> TestApp {
 }
 
 async fn register(app: &axum::Router, username: &str) -> (axum::Router, String) {
-    let body = format!(r#"{{"username":"{username}","password":"pass","name":"T"}}"#);
+    let body = format!(r#"{{"username":"{username}","password":"pass"}}"#);
     let req = axum::http::Request::builder()
         .method("POST").uri("/api/v1/auth/register")
         .header("content-type", "application/json")

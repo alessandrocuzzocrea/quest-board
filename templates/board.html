@@ -136,7 +136,7 @@ async function init() {
   currentSlug = slug;
   {% endif %}
   document.getElementById('nav').appendChild(navBar('board'));
-  $('#user-name').textContent = user.name;
+  $('#user-name').textContent = user.username;
   await loadBoard(currentSlug);
 }
 init();
