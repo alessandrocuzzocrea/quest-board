@@ -500,7 +500,7 @@ async function toggleCardLabel(labelId, has) {
 function renderComments(card) {
   const comments = card.comments || [];
   $('#panel-comments').innerHTML = comments.length
-    ? comments.map(c => `<div class="comment"><div class="comment-header"><strong>${esc(c.user_name || 'User')}</strong> <span class="text-sm" style="color:var(--text2)">${esc(c.created_at)}</span></div><div>${esc(c.text)}</div></div>`).join('')
+    ? comments.map(c => `<div class="comment"><div class="comment-header"><strong>${esc(c.user?.name || c.user?.username || 'User')}</strong> <span class="text-sm" style="color:var(--text2)">${esc(c.created_at)}</span></div><div>${esc(c.text)}</div></div>`).join('')
     : '<p style="color:var(--text2);font-size:13px">No comments yet.</p>';
 }
 
