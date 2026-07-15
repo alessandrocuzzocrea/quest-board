@@ -25,7 +25,6 @@ async fn main() {
     let (event_tx, _) = quest_board::events::channel();
     let state = Arc::new(quest_board::AppState {
         db: pool.clone(),
-        ai_client: Arc::new(quest_board::handlers::ai::RealLlmClient),
         event_tx,
     });
 

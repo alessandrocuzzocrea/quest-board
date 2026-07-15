@@ -40,7 +40,7 @@ async fn setup() -> TestApp {
         .expect("failed to run migrations");
 
     let (event_tx, _) = quest_board::events::channel();
-    let state = Arc::new(AppState { db: pool.clone(), ai_client: Arc::new(quest_board::handlers::ai::RealLlmClient), event_tx });
+    let state = Arc::new(AppState { db: pool.clone(), event_tx });
     let app = quest_board::build_app(pool.clone(), state).await;
 
     TestApp { _guard: guard, app, _pool: pool }
@@ -279,4 +279,38 @@ async fn test_change_password_requires_auth() {
         .body(axum::body::Body::from(r#"{"old_password":"x","new_password":"y"}"#)).unwrap();
     let resp = ta.app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 401);
+}
+
+#[tokio::test]
+async fn test_auth_service_register_login() {
+    let ta = setup().await;
+    let svc = quest_board::services::AuthService::new(ta._pool.clone());
+
+    // Register via service
+    let user = svc.register("svcuser", "secret", "Svc User").await.unwrap();
+    assert_eq!(user.username, "svcuser");
+    assert_eq!(user.name, "Svc User");
+
+    // Login via service — password hash should match
+    let logged_in = svc.login("svcuser", "secret").await.unwrap();
+    assert_eq!(logged_in.id, user.id);
+
+    // Wrong password
+    let err = svc.login("svcuser", "wrong").await.unwrap_err();
+    assert!(matches!(err, quest_board::error::AppError::Unauthorized(_)));
+
+    // Get user via service
+    let fetched = svc.get_user(&user.id).await.unwrap();
+    assert_eq!(fetched.username, "svcuser");
+
+    // Update name via service
+    let updated = svc.update_name(&user.id, "Updated Name").await.unwrap();
+    assert_eq!(updated.name, "Updated Name");
+
+    // Change password via service
+    svc.change_password(&user.id, "secret", "newsecret").await.unwrap();
+    let err = svc.login("svcuser", "secret").await.unwrap_err();  // old password fails
+    assert!(matches!(err, quest_board::error::AppError::Unauthorized(_)));
+    let logged_in = svc.login("svcuser", "newsecret").await.unwrap();  // new password works
+    assert_eq!(logged_in.id, user.id);
 }
