@@ -567,6 +567,10 @@ async function uploadAttachment(event) {
     renderCardModal(currentCard);
   } catch (err) { showAlert(err.message); }
 }
+
+function renderTaskLists(card) {
+  // Task lists rendered inline if available
+}
 function showAddCard(listId) {
   $('#new-card-name').value = '';
   $('#new-card-desc').value = '';
