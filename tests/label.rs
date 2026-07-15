@@ -39,7 +39,7 @@ async fn setup() -> TestApp {
 
 /// Register a test user and return the session cookie.
 async fn register(app: &axum::Router, name: &str) -> String {
-    let body = format!(r#"{{"username":"{name}","password":"pass","name":"{name} Tester"}}"#);
+    let body = format!(r#"{{"username":"{name}","password":"pass"}}"#);
     let req = axum::http::Request::builder()
         .method("POST").uri("/api/v1/auth/register")
         .header("content-type", "application/json")

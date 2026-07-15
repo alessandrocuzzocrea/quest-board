@@ -45,7 +45,7 @@ async fn test_create_and_list_comment() {
     let req = axum::http::Request::builder()
         .method("POST").uri("/api/v1/auth/register")
         .header("content-type", "application/json")
-        .body(axum::body::Body::from(r#"{"username":"c","password":"p","name":"T"}"#)).unwrap();
+        .body(axum::body::Body::from(r#"{"username":"c","password":"p"}"#)).unwrap();
     let resp = ta.app.clone().oneshot(req).await.unwrap();
     let cookie = resp.headers().get("set-cookie").and_then(|v| v.to_str().ok())
         .map(|s| s.split(';').next().unwrap_or("").to_string()).unwrap();
@@ -72,6 +72,7 @@ async fn test_create_and_list_comment() {
     ).unwrap();
     let list_id = list["id"].as_str().unwrap();
 
+    // Create card
     let req = axum::http::Request::builder()
         .method("POST").uri("/api/v1/cards")
         .header("content-type", "application/json").header("cookie", &cookie)
@@ -104,7 +105,7 @@ async fn register(app: &axum::Router) -> String {
     let req = axum::http::Request::builder()
         .method("POST").uri("/api/v1/auth/register")
         .header("content-type", "application/json")
-        .body(axum::body::Body::from(r#"{"username":"cu","password":"p","name":"CommentUser"}"#)).unwrap();
+        .body(axum::body::Body::from(r#"{"username":"cu","password":"p"}"#)).unwrap();
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 200);
     resp.headers().get("set-cookie").and_then(|v| v.to_str().ok())

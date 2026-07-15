@@ -52,7 +52,7 @@ async fn register(app: &axum::Router) -> String {
         .uri("/api/v1/auth/register")
         .header("content-type", "application/json")
         .body(axum::body::Body::from(
-            r#"{"username":"testuser","password":"secret","name":"Test User"}"#,
+            r#"{"username":"testuser","password":"secret"}"#,
         ))
         .unwrap();
 
@@ -76,7 +76,7 @@ async fn test_register_and_login() {
         .uri("/api/v1/auth/register")
         .header("content-type", "application/json")
         .body(axum::body::Body::from(
-            r#"{"username":"testuser","password":"secret","name":"Test User"}"#,
+            r#"{"username":"testuser","password":"secret"}"#,
         ))
         .unwrap();
 
@@ -90,7 +90,6 @@ async fn test_register_and_login() {
     )
     .unwrap();
     assert_eq!(body["user"]["username"], "testuser");
-    assert_eq!(body["user"]["name"], "Test User");
 }
 
 #[tokio::test]
@@ -119,7 +118,7 @@ async fn test_register_then_me() {
         .uri("/api/v1/auth/register")
         .header("content-type", "application/json")
         .body(axum::body::Body::from(
-            r#"{"username":"me","password":"pass","name":"Me"}"#,
+            r#"{"username":"me","password":"pass"}"#,
         ))
         .unwrap();
 
@@ -180,46 +179,6 @@ async fn test_seeded_admin_login() {
 
 // ── User Settings Tests ──────────────────────────────────────────
 
-#[tokio::test]
-async fn test_update_name_requires_auth() {
-    let ta = setup().await;
-    let req = axum::http::Request::builder()
-        .method("PUT").uri("/api/v1/auth/me")
-        .header("content-type", "application/json")
-        .body(axum::body::Body::from(r#"{"name":"New"}"#)).unwrap();
-    let resp = ta.app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), 401);
-}
-
-#[tokio::test]
-async fn test_update_name() {
-    let ta = setup().await;
-    let cookie = register(&ta.app).await;
-
-    // Update name
-    let req = axum::http::Request::builder()
-        .method("PUT").uri("/api/v1/auth/me")
-        .header("content-type", "application/json")
-        .header("cookie", &cookie)
-        .body(axum::body::Body::from(r#"{"name":"NewName"}"#)).unwrap();
-    let resp = ta.app.clone().oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), 200);
-    let body: serde_json::Value = serde_json::from_slice(
-        &axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap()
-    ).unwrap();
-    assert_eq!(body["user"]["name"], "NewName");
-
-    // Verify via me endpoint
-    let req = axum::http::Request::builder()
-        .method("GET").uri("/api/v1/auth/me")
-        .header("cookie", &cookie)
-        .body(axum::body::Body::empty()).unwrap();
-    let resp = ta.app.clone().oneshot(req).await.unwrap();
-    let body: serde_json::Value = serde_json::from_slice(
-        &axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap()
-    ).unwrap();
-    assert_eq!(body["user"]["name"], "NewName");
-}
 
 #[tokio::test]
 async fn test_change_password() {
@@ -231,7 +190,7 @@ async fn test_change_password() {
         .method("PUT").uri("/api/v1/auth/me/password")
         .header("content-type", "application/json")
         .header("cookie", &cookie)
-        .body(axum::body::Body::from(r#"{"old_password":"secret","new_password":"new-secret"}"#)).unwrap();
+        .body(axum::body::Body::from(r#"{"current_password":"secret","new_password":"new-secret"}"#)).unwrap();
     let resp = ta.app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 200);
 
@@ -265,7 +224,7 @@ async fn test_change_password_wrong_old_password() {
         .method("PUT").uri("/api/v1/auth/me/password")
         .header("content-type", "application/json")
         .header("cookie", &cookie)
-        .body(axum::body::Body::from(r#"{"old_password":"wrong","new_password":"new-secret"}"#)).unwrap();
+        .body(axum::body::Body::from(r#"{"current_password":"wrong","new_password":"new-secret"}"#)).unwrap();
     let resp = ta.app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 401);
 }
@@ -276,10 +235,11 @@ async fn test_change_password_requires_auth() {
     let req = axum::http::Request::builder()
         .method("PUT").uri("/api/v1/auth/me/password")
         .header("content-type", "application/json")
-        .body(axum::body::Body::from(r#"{"old_password":"x","new_password":"y"}"#)).unwrap();
+        .body(axum::body::Body::from(r#"{"current_password":"x","new_password":"y"}"#)).unwrap();
     let resp = ta.app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 401);
 }
+
 
 #[tokio::test]
 async fn test_auth_service_register_login() {
@@ -287,9 +247,8 @@ async fn test_auth_service_register_login() {
     let svc = quest_board::services::AuthService::new(ta._pool.clone());
 
     // Register via service
-    let user = svc.register("svcuser", "secret", "Svc User").await.unwrap();
+    let user = svc.register("svcuser", "secret").await.unwrap();
     assert_eq!(user.username, "svcuser");
-    assert_eq!(user.name, "Svc User");
 
     // Login via service — password hash should match
     let logged_in = svc.login("svcuser", "secret").await.unwrap();
@@ -303,14 +262,11 @@ async fn test_auth_service_register_login() {
     let fetched = svc.get_user(&user.id).await.unwrap();
     assert_eq!(fetched.username, "svcuser");
 
-    // Update name via service
-    let updated = svc.update_name(&user.id, "Updated Name").await.unwrap();
-    assert_eq!(updated.name, "Updated Name");
-
     // Change password via service
     svc.change_password(&user.id, "secret", "newsecret").await.unwrap();
-    let err = svc.login("svcuser", "secret").await.unwrap_err();  // old password fails
+    let err = svc.login("svcuser", "secret").await.unwrap_err();
     assert!(matches!(err, quest_board::error::AppError::Unauthorized(_)));
-    let logged_in = svc.login("svcuser", "newsecret").await.unwrap();  // new password works
+    let logged_in = svc.login("svcuser", "newsecret").await.unwrap();
     assert_eq!(logged_in.id, user.id);
+
 }

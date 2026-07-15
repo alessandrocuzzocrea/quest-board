@@ -5,18 +5,8 @@
   <h1 class="mb-16">Settings</h1>
 
   <div class="settings-section">
-    <h3>Profile</h3>
-    <form onsubmit="updateProfile(event)">
-      <div class="form-group">
-        <label for="settings-name">Display Name</label>
-        <input type="text" id="settings-name" class="input" required>
-      </div>
-      <div class="form-group">
-        <label for="settings-username">Username</label>
-        <input type="text" id="settings-username" class="input" disabled>
-      </div>
-      <button class="btn btn-primary">Update Profile</button>
-    </form>
+    <h3>Account</h3>
+    <p>Logged in as <strong id="settings-username"></strong></p>
   </div>
 
   <div class="settings-section">
@@ -51,24 +41,11 @@ async function init() {
   user = await requireAuth();
   if (!user) return;
   document.getElementById('nav').appendChild(navBar('settings'));
-  $('#user-name').textContent = user.name;
-  $('#settings-name').value = user.name;
-  $('#settings-username').value = user.username;
+  $('#user-name').textContent = user.username;
+  $('#settings-username').textContent = user.username;
   loadApiKeys();
 }
 init();
-
-async function updateProfile(e) {
-  e.preventDefault();
-  try {
-    const res = await API.updateName($('#settings-name').value);
-    user = res.user;
-    $('#user-name').textContent = user.name;
-    showAlert('Profile updated', 'success');
-  } catch (err) {
-    showAlert(err.message);
-  }
-}
 
 async function changePassword(e) {
   e.preventDefault();

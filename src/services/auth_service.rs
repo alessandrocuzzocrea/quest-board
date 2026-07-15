@@ -21,9 +21,9 @@ impl AuthService {
         Self { db }
     }
 
-    pub async fn register(&self, username: &str, password: &str, name: &str) -> Result<User, AppError> {
-        if username.is_empty() || password.is_empty() || name.is_empty() {
-            return Err(AppError::BadRequest("username, password, and name are required".into()));
+    pub async fn register(&self, username: &str, password: &str) -> Result<User, AppError> {
+        if username.is_empty() || password.is_empty() {
+            return Err(AppError::BadRequest("username and password are required".into()));
         }
 
         if repository::user_repo::find_by_username(&self.db, username).await?.is_some() {
@@ -36,7 +36,7 @@ impl AuthService {
             .map_err(|_| AppError::Internal("failed to hash password".into()))?
             .to_string();
 
-        repository::user_repo::create(&self.db, username, &pw_hash, name).await
+        repository::user_repo::create(&self.db, username, &pw_hash).await
     }
 
     pub async fn login(&self, username: &str, password: &str) -> Result<User, AppError> {
@@ -61,17 +61,13 @@ impl AuthService {
             .ok_or(AppError::NotFound("user not found".into()))
     }
 
-    pub async fn update_name(&self, uid: &Uuid, name: &str) -> Result<User, AppError> {
-        repository::user_repo::update_name(&self.db, uid, name).await
-    }
-
-    pub async fn change_password(&self, uid: &Uuid, old_password: &str, new_password: &str) -> Result<(), AppError> {
+    pub async fn change_password(&self, uid: &Uuid, current_password: &str, new_password: &str) -> Result<(), AppError> {
         let user = self.get_user(uid).await?;
 
         let parsed = PasswordHash::new(&user.password_hash)
             .map_err(|_| AppError::Internal("auth error".into()))?;
 
-        let peppered = format!("{}{}", pepper(), old_password);
+        let peppered = format!("{}{}", pepper(), current_password);
         Argon2::default()
             .verify_password(peppered.as_bytes(), &parsed)
             .map_err(|_| AppError::Unauthorized("invalid password".into()))?;

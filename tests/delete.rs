@@ -32,7 +32,7 @@ async fn register(app: &axum::Router) -> String {
     let req = axum::http::Request::builder()
         .method("POST").uri("/api/v1/auth/register")
         .header("content-type", "application/json")
-        .body(axum::body::Body::from(r#"{"username":"del","password":"pass","name":"Del"}"#)).unwrap();
+        .body(axum::body::Body::from(r#"{"username":"del","password":"pass"}"#)).unwrap();
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 200);
     resp.headers().get("set-cookie").and_then(|v| v.to_str().ok())
@@ -76,6 +76,7 @@ async fn create_card(app: &axum::Router, cookie: &str, list_id: &str) -> String 
     card["id"].as_str().unwrap().to_string()
 }
 
+
 fn cookie_request(method: &str, uri: &str, cookie: &str) -> axum::http::Request<axum::body::Body> {
     axum::http::Request::builder()
         .method(method).uri(uri)
@@ -106,7 +107,7 @@ async fn test_unauthorized_requests() {
     for (method, uri, body) in [
         ("POST", "/api/v1/boards", r#"{"name":"X"}"#),
         ("DELETE", "/api/v1/boards/00000000-0000-0000-0000-000000000000", ""),
-        ("POST", "/api/v1/lists", r#"{"board_id":"00000000-0000-0000-0000-000000000000","name":"X"}"#),
+        ("POST", "/api/v1/lists", r#"{"board_id":"00000000-0000-0000-0000-000000000000"}"#),
         ("DELETE", "/api/v1/lists/00000000-0000-0000-0000-000000000000", ""),
         ("POST", "/api/v1/cards", r#"{"list_id":"00000000-0000-0000-0000-000000000000","name":"X"}"#),
         ("DELETE", "/api/v1/cards/00000000-0000-0000-0000-000000000000", ""),

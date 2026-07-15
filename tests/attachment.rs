@@ -41,7 +41,7 @@ async fn setup() -> TestApp {
 
 /// Register a test user and return the session cookie.
 async fn register(app: &axum::Router, name: &str) -> String {
-    let body = format!(r#"{{"username":"{name}","password":"pass","name":"{name} Tester"}}"#);
+    let body = format!(r#"{{"username":"{name}","password":"pass"}}"#);
     let req = axum::http::Request::builder()
         .method("POST").uri("/api/v1/auth/register")
         .header("content-type", "application/json")
@@ -67,7 +67,7 @@ async fn create_board(app: &axum::Router, cookie: &str) -> String {
 }
 
 async fn create_list(app: &axum::Router, cookie: &str, board_id: &str) -> String {
-    let body = format!(r#"{{"board_id":"{board_id}","name":"Test List"}}"#);
+    let body = format!(r#"{{"board_id":"{board_id}"}}"#);
     let req = axum::http::Request::builder()
         .method("POST").uri("/api/v1/lists")
         .header("content-type", "application/json").header("cookie", cookie)
@@ -91,6 +91,7 @@ async fn create_card(app: &axum::Router, cookie: &str, list_id: &str) -> String 
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     v["id"].as_str().unwrap().to_string()
 }
+
 
 /// POST /attachments/link — create a link attachment.
 async fn create_link_attachment(app: &axum::Router, cookie: &str, card_id: &str, name: &str, url: &str) -> serde_json::Value {
@@ -175,7 +176,7 @@ async fn test_create_link_missing_url_fails() {
     let list_id = create_list(&ta.app, &cookie, &board_id).await;
     let card_id = create_card(&ta.app, &cookie, &list_id).await;
 
-    let body = format!(r#"{{"card_id":"{card_id}","name":"No URL"}}"#);
+    let body = format!(r#"{{"card_id":"{card_id}"}}"#);
     let req = axum::http::Request::builder()
         .method("POST").uri("/api/v1/attachments/link")
         .header("content-type", "application/json").header("cookie", &cookie)

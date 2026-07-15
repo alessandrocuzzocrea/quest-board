@@ -35,7 +35,7 @@ async fn register(app: &axum::Router) -> String {
     let req = axum::http::Request::builder()
         .method("POST").uri("/api/v1/auth/register")
         .header("content-type", "application/json")
-        .body(axum::body::Body::from(r#"{"username":"edit","password":"pass","name":"Edit Tester"}"#)).unwrap();
+        .body(axum::body::Body::from(r#"{"username":"edit","password":"pass"}"#)).unwrap();
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), 200);
     resp.headers().get("set-cookie").and_then(|v| v.to_str().ok())

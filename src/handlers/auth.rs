@@ -28,7 +28,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/register", post(register))
         .route("/login", post(login))
         .route("/logout", post(logout))
-        .route("/me", get(me).put(update_name))
+        .route("/me", get(me))
         .route("/me/password", put(change_password))
 }
 
@@ -39,9 +39,9 @@ async fn register(
     Json(req): Json<RegisterRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let svc = AuthService::new(state.db.clone());
-    let user = svc.register(&req.username, &req.password, &req.name).await?;
+    let user = svc.register(&req.username, &req.password).await?;
     session.insert("user_id", user.id.to_string()).await.map_err(|e| AppError::Internal(e.to_string()))?;
-    Ok(Json(serde_json::json!({"user": {"id": user.id.to_string(), "username": req.username, "name": req.name, "role": "user"}})))
+    Ok(Json(serde_json::json!({"user": {"id": user.id.to_string(), "username": req.username, "role": "user"}})))
 }
 
 #[utoipa::path(post, path = "/api/v1/auth/login", tag = "auth", request_body = LoginRequest, responses((status = 200, body = serde_json::Value)))]
@@ -71,19 +71,6 @@ async fn me(
     Ok(Json(serde_json::json!({"user": UserResponse::from(user)})))
 }
 
-#[utoipa::path(put, path = "/api/v1/auth/me", tag = "auth", request_body = UpdateNameRequest, responses((status = 200, body = serde_json::Value)))]
-async fn update_name(
-    State(state): State<Arc<AppState>>,
-    session: tower_sessions::Session,
-    headers: HeaderMap,
-    Json(req): Json<UpdateNameRequest>,
-) -> Result<Json<serde_json::Value>, AppError> {
-    let uid = crate::auth::resolve_user(&session, &headers, &state.db).await?;
-    let svc = AuthService::new(state.db.clone());
-    let user = svc.update_name(&uid, &req.name).await?;
-    Ok(Json(serde_json::json!({"user": UserResponse::from(user)})))
-}
-
 #[utoipa::path(put, path = "/api/v1/auth/me/password", tag = "auth", request_body = ChangePasswordRequest, responses((status = 200, body = serde_json::Value)))]
 async fn change_password(
     State(state): State<Arc<AppState>>,
@@ -93,7 +80,7 @@ async fn change_password(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let uid = crate::auth::resolve_user(&session, &headers, &state.db).await?;
     let svc = AuthService::new(state.db.clone());
-    svc.change_password(&uid, &req.old_password, &req.new_password).await?;
+    svc.change_password(&uid, &req.current_password, &req.new_password).await?;
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
@@ -118,7 +105,6 @@ pub async fn htmx_login(
         }
         Err(_) => {
             let mut resp = Redirect::to("/login").into_response();
-            // Append a query param so the login page can show an error
             resp.headers_mut().insert(
                 "Location",
                 "/login?error=invalid".parse().unwrap(),
