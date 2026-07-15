@@ -6,3 +6,5 @@ pub mod comment_service;
 pub use comment_service::CommentService;
 pub mod label_service;
 pub use label_service::LabelService;
+pub mod attachment_service;
+pub use attachment_service::AttachmentService;

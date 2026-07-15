@@ -246,3 +246,35 @@ async fn test_attachments_scoped_to_card() {
     let list: Vec<serde_json::Value> = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(list.len(), 0, "card2 should have no attachments");
 }
+
+#[tokio::test]
+async fn test_attachment_service_crud() {
+    let ta = setup().await;
+    let cookie = register(&ta.app, "attsvc").await;
+    let board_id = create_board(&ta.app, &cookie).await;
+    let list_id = create_list(&ta.app, &cookie, &board_id).await;
+    let card_id = create_card(&ta.app, &cookie, &list_id).await;
+
+    let uid: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE username = $1")
+        .bind("attsvc")
+        .fetch_one(&ta._pool)
+        .await
+        .unwrap();
+
+    let svc = quest_board::services::AttachmentService::new(ta._pool.clone());
+    let card_uuid: uuid::Uuid = card_id.parse().unwrap();
+
+    // Create link attachment via service
+    let att = svc.create_link(&card_uuid, &uid, "Example", "https://example.com").await.unwrap();
+    assert_eq!(att.name, "Example");
+    assert_eq!(att.link_url.as_deref(), Some("https://example.com"));
+
+    // List attachments via service
+    let list = svc.list_by_card(&card_uuid).await.unwrap();
+    assert_eq!(list.len(), 1);
+
+    // Delete via service
+    svc.delete(&att.id).await.unwrap();
+    let list = svc.list_by_card(&card_uuid).await.unwrap();
+    assert!(list.is_empty(), "attachment should be deleted");
+}
