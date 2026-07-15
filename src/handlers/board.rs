@@ -1,14 +1,14 @@
 use askama::Template;
-
 use axum::extract::{Path, State};
 use axum::http::HeaderMap;
+use axum::response::{Html, IntoResponse};
 use axum::routing::get;
 use axum::{Json, Router};
 use std::sync::Arc;
 
 use crate::error::AppError;
-use crate::models::board::*;
-use crate::repository;
+use crate::models::board::{CreateBoardRequest, UpdateBoardRequest};
+use crate::services::BoardService;
 use crate::AppState;
 
 pub fn router() -> Router<Arc<AppState>> {
@@ -22,13 +22,14 @@ pub fn router() -> Router<Arc<AppState>> {
 async fn user_id(session: tower_sessions::Session, headers: HeaderMap, pool: &sqlx::PgPool) -> Result<uuid::Uuid, AppError> {
     crate::auth::resolve_user(&session, &headers, pool).await
 }
+
 async fn list_boards(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let uid = user_id(session, headers, &state.db).await?;
-    let svc = crate::services::BoardService::new(state.db.clone());
+    let svc = BoardService::new(state.db.clone());
     let boards = svc.list_accessible(&uid).await?;
     Ok(Json(serde_json::json!(boards)))
 }
@@ -38,12 +39,12 @@ async fn list_boards_html(
     State(state): State<Arc<AppState>>,
     session: tower_sessions::Session,
     headers: HeaderMap,
-) -> Result<impl axum::response::IntoResponse, AppError> {
+) -> Result<impl IntoResponse, AppError> {
     let uid = user_id(session, headers, &state.db).await?;
-    let svc = crate::services::BoardService::new(state.db.clone());
+    let svc = BoardService::new(state.db.clone());
     let boards = svc.list_accessible(&uid).await?;
     let tmpl = crate::BoardGridTemplate { boards, query: String::new() };
-    Ok(axum::response::Html(
+    Ok(Html(
         tmpl.render().map_err(|e| AppError::Internal(e.to_string()))?,
     ))
 }
@@ -55,11 +56,8 @@ async fn create_board(
     Json(req): Json<CreateBoardRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let uid = user_id(session, headers, &state.db).await?;
-
-    let board = repository::board_repo::create(&state.db, &req.name, &uid).await?;
-    repository::board_repo::add_member(&state.db, &board.id, &uid, "admin").await?;
-    repository::list_repo::create_defaults(&state.db, &board.id).await?;
-
+    let svc = BoardService::new(state.db.clone());
+    let board = svc.create(&req.name, &uid).await?;
     Ok(Json(serde_json::json!(board)))
 }
 
@@ -71,14 +69,9 @@ async fn get_board(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(session, headers, &state.db).await?;
     let board_id: uuid::Uuid = board_id.parse().map_err(|_| AppError::BadRequest("invalid id".into()))?;
-
-    let (board, lists, members) = repository::board_repo::get_full_board(&state.db, &board_id).await?;
-
-    Ok(Json(serde_json::json!({
-        "board": board,
-        "lists": lists,
-        "members": members,
-    })))
+    let svc = BoardService::new(state.db.clone());
+    let (board, lists, members) = svc.get_full(&board_id).await?;
+    Ok(Json(serde_json::json!({"board": board, "lists": lists, "members": members})))
 }
 
 async fn update_board(
@@ -90,18 +83,8 @@ async fn update_board(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(session, headers, &state.db).await?;
     let board_id: uuid::Uuid = board_id.parse().map_err(|_| AppError::BadRequest("invalid id".into()))?;
-
-    if let Some(name) = &req.name {
-        repository::board_repo::update_name(&state.db, &board_id, name).await?;
-    }
-    if let Some(position) = req.position {
-        repository::board_repo::update_position(&state.db, &board_id, position).await?;
-    }
-
-    let board = repository::board_repo::get_by_id(&state.db, &board_id)
-        .await?
-        .ok_or(AppError::NotFound("board not found".into()))?;
-
+    let svc = BoardService::new(state.db.clone());
+    let board = svc.update(&board_id, req.name.as_deref(), req.position).await?;
     Ok(Json(serde_json::json!(board)))
 }
 
@@ -113,7 +96,8 @@ async fn delete_board(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(session, headers, &state.db).await?;
     let board_id: uuid::Uuid = board_id.parse().map_err(|_| AppError::BadRequest("invalid id".into()))?;
-    repository::board_repo::delete(&state.db, &board_id).await?;
+    let svc = BoardService::new(state.db.clone());
+    svc.delete(&board_id).await?;
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
@@ -124,12 +108,7 @@ async fn get_board_by_slug(
     Path(slug): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let _uid = user_id(session, headers, &state.db).await?;
-
-    let (board, lists, members) = repository::board_repo::get_full_board_by_slug(&state.db, &slug).await?;
-
-    Ok(Json(serde_json::json!({
-        "board": board,
-        "lists": lists,
-        "members": members,
-    })))
+    let svc = BoardService::new(state.db.clone());
+    let (board, lists, members) = svc.get_full_by_slug(&slug).await?;
+    Ok(Json(serde_json::json!({"board": board, "lists": lists, "members": members})))
 }

@@ -16,3 +16,5 @@ pub mod card_service;
 pub use card_service::CardService;
 pub mod auth_service;
 pub use auth_service::AuthService;
+pub mod search_service;
+pub use search_service::SearchService;

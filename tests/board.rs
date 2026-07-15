@@ -347,3 +347,72 @@ async fn test_favorite_service_crud() {
     let result = svc.list_by_user(&uid).await.unwrap();
     assert_eq!(result["boards"].as_array().unwrap().len(), 0);
 }
+
+#[tokio::test]
+async fn test_board_service_full_crud() {
+    let ta = setup().await;
+    let cookie = register(&ta.app, "boardcrud").await;
+
+    let uid: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE username = $1")
+        .bind("boardcrud")
+        .fetch_one(&ta._pool)
+        .await
+        .unwrap();
+
+    let svc = quest_board::services::BoardService::new(ta._pool.clone());
+
+    // Create board via service (also creates default lists and admin membership)
+    let board = svc.create("Full CRUD Board", &uid).await.unwrap();
+    assert_eq!(board.name, "Full CRUD Board");
+
+    // Get full board via service
+    let (b, lists, members) = svc.get_full(&board.id).await.unwrap();
+    assert_eq!(b.id, board.id);
+    assert_eq!(lists.len(), 3, "default lists: To Do, In Progress, Done");
+    assert_eq!(members.len(), 1);
+
+    // Get by slug
+    let found = svc.get_by_slug(&board.slug).await.unwrap();
+    assert!(found.is_some());
+    assert_eq!(found.unwrap().id, board.id);
+
+    // Update board name via service
+    let updated = svc.update(&board.id, Some("Updated Board"), None).await.unwrap();
+    assert_eq!(updated.name, "Updated Board");
+
+    // Delete board via service
+    svc.delete(&board.id).await.unwrap();
+    let found = svc.get_by_slug(&board.slug).await.unwrap();
+    assert!(found.is_none(), "board should be deleted");
+}
+
+#[tokio::test]
+async fn test_search_service() {
+    let ta = setup().await;
+    let cookie = register(&ta.app, "searchsvc").await;
+
+    let uid: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE username = $1")
+        .bind("searchsvc")
+        .fetch_one(&ta._pool)
+        .await
+        .unwrap();
+
+    let svc = quest_board::services::SearchService::new(ta._pool.clone());
+
+    // Create a board to search
+    let req = axum::http::Request::builder()
+        .method("POST").uri("/api/v1/boards")
+        .header("content-type", "application/json").header("cookie", &cookie)
+        .body(axum::body::Body::from(r#"{"name":"Searchable Board"}"#)).unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200);
+
+    // Search boards via service
+    let boards = svc.search_boards(&uid, "Searchable").await.unwrap();
+    assert_eq!(boards.len(), 1);
+    assert_eq!(boards[0].name, "Searchable Board");
+
+    // Search cards — empty since no cards yet
+    let cards = svc.search_cards(&uid, "anything").await.unwrap();
+    assert!(cards.is_empty());
+}
