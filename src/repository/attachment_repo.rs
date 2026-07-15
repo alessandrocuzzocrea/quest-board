@@ -44,3 +44,27 @@ pub async fn delete(pool: &sqlx::PgPool, attachment_id: &Uuid) -> Result<(), App
         .await?;
     Ok(())
 }
+
+pub async fn create_file(
+    pool: &sqlx::PgPool,
+    card_id: &Uuid,
+    user_id: &Uuid,
+    name: &str,
+    file_path: &str,
+    size: i64,
+    mime_type: &str,
+) -> Result<Attachment, AppError> {
+    let id: Uuid = sqlx::query_scalar(
+        "INSERT INTO attachments (card_id, user_id, name, attachment_type, file_path, size, mime_type) \
+         VALUES ($1, $2, $3, 'file', $4, $5, $6) RETURNING id",
+    )
+    .bind(card_id)
+    .bind(user_id)
+    .bind(name)
+    .bind(file_path)
+    .bind(size)
+    .bind(mime_type)
+    .fetch_one(pool)
+    .await?;
+    get_by_id(pool, &id).await.transpose().unwrap()
+}

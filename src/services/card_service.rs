@@ -56,6 +56,7 @@ impl CardService {
         let comments = repository::comment_repo::list_by_card(&self.db, card_id).await?;
         let checklists = repository::checklist_repo::list_by_card(&self.db, card_id).await?;
         let actions = repository::action_repo::list_by_card(&self.db, card_id).await?;
+        let attachments = repository::attachment_repo::list_by_card(&self.db, card_id).await?;
 
         let card_json = serde_json::to_value(&card).unwrap();
         let mut merged = card_json.as_object().unwrap().clone();
@@ -64,6 +65,7 @@ impl CardService {
         merged.insert("comments".into(), serde_json::to_value(&comments).unwrap());
         merged.insert("checklists".into(), serde_json::to_value(&checklists).unwrap());
         merged.insert("actions".into(), serde_json::to_value(&actions).unwrap());
+        merged.insert("attachments".into(), serde_json::to_value(&attachments).unwrap());
         Ok(serde_json::Value::Object(merged))
     }
 

@@ -71,6 +71,12 @@
           <div id="panel-members"></div>
         </div>
         <div class="form-group">
+          <label>Attachments</label>
+          <div id="panel-attachments"></div>
+          <button class="btn btn-sm mt-4" onclick="document.getElementById('file-upload-input').click()">+ Upload File</button>
+          <input type="file" id="file-upload-input" style="display:none" onchange="uploadAttachment(event)">
+        </div>
+        <div class="form-group">
           <label>Actions</label>
           <div id="panel-actions" style="max-height:200px;overflow-y:auto"></div>
         </div>
@@ -525,31 +531,42 @@ function renderActions(card) {
 }
 
 function renderAttachments(card) {
-  // Attachments rendered inline if available
+  const atts = card.attachments || [];
+  if (atts.length === 0) {
+    $('#panel-attachments').innerHTML = '<span style="color:var(--text2);font-size:13px">None</span>';
+    return;
+  }
+  $('#panel-attachments').innerHTML = atts.map(a => {
+    if (a.type === 'file') {
+      return `<div style="display:flex;align-items:center;gap:4px;padding:2px 0">
+        <a href="/${esc(a.file_path)}" target="_blank" style="flex:1">${esc(a.name)}</a>
+        <span class="text-sm" style="color:var(--text2)">${a.size ? Math.round(a.size / 1024) + 'KB' : ''}</span>
+      </div>`;
+    }
+    return `<div style="display:flex;align-items:center;gap:4px;padding:2px 0">
+      <a href="${esc(a.link_url)}" target="_blank" style="flex:1">${esc(a.name)}</a>
+      <span class="text-sm" style="color:var(--text2)">link</span>
+    </div>`;
+  }).join('');
 }
 
-function renderTaskLists(card) {
-  // Task lists rendered inline if available
-}
-
-async function archiveCard() {
-  if (!currentCard || !confirm('Archive this card?')) return;
+async function uploadAttachment(event) {
+  const file = event.target.files[0];
+  if (!file || !currentCard) return;
+  const formData = new FormData();
+  formData.append('card_id', currentCard.id);
+  formData.append('file', file);
   try {
-    await API.updateCard(currentCard.id, { is_archived: true });
-    closePanel();
-    await loadBoard();
+    await fetch('/api/v1/attachments/upload', {
+      method: 'POST',
+      credentials: 'same-origin',
+      body: formData,
+    });
+    event.target.value = '';
+    currentCard = await API.getCard(currentCard.id);
+    renderCardModal(currentCard);
   } catch (err) { showAlert(err.message); }
 }
-
-async function deleteCardFromPanel() {
-  if (!currentCard || !confirm('Delete this card? This cannot be undone.')) return;
-  try {
-    await API.deleteCard(currentCard.id);
-    closePanel();
-    await loadBoard();
-  } catch (err) { showAlert(err.message); }
-}
-
 function showAddCard(listId) {
   $('#new-card-name').value = '';
   $('#new-card-desc').value = '';

@@ -269,6 +269,7 @@ pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router
         .route("/settings.html", get(page_settings_html))
         .nest("/api/v1", api)
         .merge(utoipa_swagger_ui::SwaggerUi::new("/api-docs").url("/api-docs/openapi.json", ApiDoc::openapi()))
+        .nest_service("/uploads", tower_http::services::fs::ServeDir::new("uploads"))
         .fallback_service(tower::service_fn(static_or_redirect))
         .layer(middleware::from_fn(require_auth_for_html))
         .layer(session_layer)
