@@ -214,3 +214,45 @@ async fn test_search_returns_html_for_htmx_requests() {
     assert!(html.contains("Alpha Board"), "empty query should return all boards");
     assert!(html.contains("Beta Project"), "empty query should return all boards");
 }
+
+#[tokio::test]
+async fn test_board_service_list_accessible() {
+    let ta = setup().await;
+    let cookie = register(&ta.app, "svctest").await;
+
+    // Get the user's UUID from DB
+    let user_id: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE username = $1")
+        .bind("svctest")
+        .fetch_one(&ta._pool)
+        .await
+        .expect("user should exist");
+
+    // Service should initially return no boards
+    let svc = quest_board::services::BoardService::new(ta._pool.clone());
+    let boards = svc.list_accessible(&user_id).await.unwrap();
+    assert!(boards.is_empty(), "new user should have no boards");
+
+    // Create a board via API
+    let req = axum::http::Request::builder()
+        .method("POST").uri("/api/v1/boards")
+        .header("content-type", "application/json")
+        .header("cookie", &cookie)
+        .body(axum::body::Body::from(r#"{"name":"Service Board"}"#)).unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), 200);
+
+    // Service should now return the board
+    let boards = svc.list_accessible(&user_id).await.unwrap();
+    assert_eq!(boards.len(), 1);
+    assert_eq!(boards[0].name, "Service Board");
+
+    // A different user should not see the board
+    let other_cookie = register(&ta.app, "otheruser").await;
+    let other_id: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE username = $1")
+        .bind("otheruser")
+        .fetch_one(&ta._pool)
+        .await
+        .expect("other user should exist");
+    let other_boards = svc.list_accessible(&other_id).await.unwrap();
+    assert!(other_boards.is_empty(), "other user should not see the board");
+}
