@@ -26,6 +26,7 @@ ts-rs = { version = "12", features = ["serde-compat", "uuid-impl", "chrono-impl"
 sha2 = "0.11"
 base64 = "0.22"
 rand = "0.10"
+askama = "0.16"
 hex = "0.4"
 
 # Auth
