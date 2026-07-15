@@ -177,3 +177,45 @@ async fn test_multiple_api_keys_per_user() {
     let list = body(resp).await;
     assert_eq!(list.as_array().unwrap().len(), 3, "should have 3 keys");
 }
+
+#[tokio::test]
+async fn test_api_key_service_crud() {
+    let ta = setup().await;
+    let (app, _cookie) = register(&ta.app, "apiksvc").await;
+
+    let uid: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE username = $1")
+        .bind("apiksvc")
+        .fetch_one(&ta._pool)
+        .await
+        .unwrap();
+
+    let svc = quest_board::services::ApiKeyService::new(ta._pool.clone());
+
+    // Create via service
+    let req = quest_board::models::api_key::CreateApiKeyRequest {
+        name: "Service Key".into(),
+        expires_at: None,
+    };
+    let (response, _token) = svc.create(uid, &req).await.unwrap();
+    assert_eq!(response.name, "Service Key");
+
+    // List via service
+    let keys = svc.list_by_user(uid).await.unwrap();
+    assert_eq!(keys.len(), 1);
+
+    // Delete via service
+    svc.delete(response.id, uid).await.unwrap();
+    let keys = svc.list_by_user(uid).await.unwrap();
+    assert!(keys.is_empty(), "key should be deleted");
+
+    // Listing with wrong user returns nothing
+    let app2 = &app;
+    let (_app2, cookie2) = register(app2, "other4keys").await;
+    let other_id: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE username = $1")
+        .bind("other4keys")
+        .fetch_one(&ta._pool)
+        .await
+        .unwrap();
+    let keys = svc.list_by_user(other_id).await.unwrap();
+    assert!(keys.is_empty(), "other user should not see the key");
+}

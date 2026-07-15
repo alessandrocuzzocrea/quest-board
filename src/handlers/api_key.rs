@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use crate::auth::resolve_user;
 use crate::error::AppError;
-use crate::models::api_key::{ApiKeyResponse, CreateApiKeyRequest};
-use crate::repository;
+use crate::models::api_key::CreateApiKeyRequest;
+use crate::services::ApiKeyService;
 use crate::AppState;
 
 pub fn router() -> Router<Arc<AppState>> {
@@ -22,10 +22,9 @@ async fn list_api_keys(
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let user_id = resolve_user(&session, &headers, &state.db).await?;
-    let keys = repository::api_key_repo::list_by_user(&state.db, user_id).await?;
-    let responses: Vec<ApiKeyResponse> =
-        keys.into_iter().map(ApiKeyResponse::from).collect();
-    Ok(Json(serde_json::json!(responses)))
+    let svc = ApiKeyService::new(state.db.clone());
+    let keys = svc.list_by_user(user_id).await?;
+    Ok(Json(serde_json::json!(keys)))
 }
 
 /// POST /api/v1/api-keys — creates a new API key.
@@ -38,23 +37,11 @@ async fn create_api_key(
     Json(req): Json<CreateApiKeyRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let user_id = resolve_user(&session, &headers, &state.db).await?;
-
-    let (full_token, prefix, token_hash) = crate::auth::generate_api_key();
-
-    let key = repository::api_key_repo::create(
-        &state.db,
-        user_id,
-        &req.name,
-        &token_hash,
-        &prefix,
-        req.expires_at,
-    )
-    .await?;
-
-    let response = ApiKeyResponse::from(key);
+    let svc = ApiKeyService::new(state.db.clone());
+    let (response, token) = svc.create(user_id, &req).await?;
     Ok(Json(serde_json::json!({
         "api_key": response,
-        "token": full_token,
+        "token": token,
     })))
 }
 
@@ -66,11 +53,9 @@ async fn delete_api_key(
     Path(key_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let user_id = resolve_user(&session, &headers, &state.db).await?;
-
     let key_id = uuid::Uuid::parse_str(&key_id)
         .map_err(|_| AppError::BadRequest("invalid key id".into()))?;
-
-    repository::api_key_repo::delete(&state.db, key_id, user_id).await?;
-
+    let svc = ApiKeyService::new(state.db.clone());
+    svc.delete(key_id, user_id).await?;
     Ok(Json(serde_json::json!({ "success": true })))
 }

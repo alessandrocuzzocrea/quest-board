@@ -305,3 +305,45 @@ async fn test_list_service_create_and_get() {
     assert_eq!(list.id, new_list.id);
     assert!(cards.is_empty(), "new list should have no cards");
 }
+
+#[tokio::test]
+async fn test_favorite_service_crud() {
+    let ta = setup().await;
+    let cookie = register(&ta.app, "favsvc").await;
+
+    let uid: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE username = $1")
+        .bind("favsvc")
+        .fetch_one(&ta._pool)
+        .await
+        .unwrap();
+
+    let svc = quest_board::services::FavoriteService::new(ta._pool.clone());
+
+    // Create board to favorite
+    let req = axum::http::Request::builder()
+        .method("POST").uri("/api/v1/boards")
+        .header("content-type", "application/json").header("cookie", &cookie)
+        .body(axum::body::Body::from(r#"{"name":"Fav Board"}"#)).unwrap();
+    let resp = ta.app.clone().oneshot(req).await.unwrap();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let board: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let board_id: uuid::Uuid = board["id"].as_str().unwrap().parse().unwrap();
+
+    // Create favorite via service
+    svc.create(&uid, Some(&board_id), None).await.unwrap();
+
+    // List via service
+    let result = svc.list_by_user(&uid).await.unwrap();
+    assert_eq!(result["boards"].as_array().unwrap().len(), 1);
+    assert_eq!(result["boards"][0]["name"], "Fav Board");
+
+    // Delete via service (need to get the fav id)
+    let fav_id: uuid::Uuid = sqlx::query_scalar("SELECT id FROM favorites WHERE user_id = $1")
+        .bind(uid)
+        .fetch_one(&ta._pool)
+        .await
+        .unwrap();
+    svc.delete(&fav_id).await.unwrap();
+    let result = svc.list_by_user(&uid).await.unwrap();
+    assert_eq!(result["boards"].as_array().unwrap().len(), 0);
+}

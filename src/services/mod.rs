@@ -8,3 +8,7 @@ pub mod label_service;
 pub use label_service::LabelService;
 pub mod attachment_service;
 pub use attachment_service::AttachmentService;
+pub mod favorite_service;
+pub use favorite_service::FavoriteService;
+pub mod api_key_service;
+pub use api_key_service::ApiKeyService;
