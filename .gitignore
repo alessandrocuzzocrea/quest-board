@@ -3,3 +3,4 @@
 openapi.json
 .env
 node_modules/
+openapi.yaml
