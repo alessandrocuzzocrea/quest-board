@@ -7,6 +7,7 @@ RUN bun run build
 
 FROM rust:slim-bookworm AS backend
 WORKDIR /app
+RUN apt-get update -qq && apt-get install -y -qq curl && rm -rf /var/lib/apt/lists/*
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs && mkdir -p handlers repository models migrations
 RUN cargo build --release 2>/dev/null || true
