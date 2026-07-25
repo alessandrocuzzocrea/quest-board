@@ -1,9 +1,7 @@
-use axum::extract::{Form, State};
-use axum::http::HeaderMap;
+use axum::extract::{Json, State};
 use axum::routing::{get, post, put};
-use axum::response::{Html, IntoResponse, Redirect, Response};
-use axum::{Json, Router};
-use axum::http::StatusCode;
+use axum::Router;
+use axum::http::HeaderMap;
 use std::sync::Arc;
 
 use crate::error::AppError;
@@ -26,9 +24,9 @@ async fn try_login(
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/register", post(register))
+        .route("/me", get(me))
         .route("/login", post(login))
         .route("/logout", post(logout))
-        .route("/me", get(me))
         .route("/me/password", put(change_password))
 }
 
@@ -84,52 +82,3 @@ async fn change_password(
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
-/// Serves the login page for HTMX-based browsing.
-pub async fn htmx_login_page() -> impl IntoResponse {
-    Html(LOGIN_PAGE)
-}
-
-/// HTMX form login handler — accepts `application/x-www-form-urlencoded`.
-pub async fn htmx_login(
-    State(state): State<Arc<AppState>>,
-    session: tower_sessions::Session,
-    Form(req): Form<LoginRequest>,
-) -> Response {
-    match try_login(&state, &session, &req).await {
-        Ok(_) => {
-            let resp = Redirect::to("/boards").into_response();
-            if let Err(e) = session.save().await {
-                tracing::warn!("failed to save session: {e}");
-            }
-            resp
-        }
-        Err(_) => {
-            let mut resp = Redirect::to("/login").into_response();
-            resp.headers_mut().insert(
-                "Location",
-                "/login?error=invalid".parse().unwrap(),
-            );
-            *resp.status_mut() = StatusCode::SEE_OTHER;
-            resp
-        }
-    }
-}
-
-const LOGIN_PAGE: &str = concat!(
-    "<!DOCTYPE html>",
-    "<html lang='en'><head>",
-    "<meta charset='UTF-8'>",
-    "<meta name='viewport' content='width=device-width,initial-scale=1'>",
-    "<title>Login — quest-board</title>",
-    "<link rel='stylesheet' href='/css/style.css'>",
-    "</head><body>",
-    "<div class='auth-box'>",
-    "<h1>quest-board</h1>",
-    "<form action='/login' method='post'>",
-    "<div class='form-group'><label>Username</label><input type='text' name='username' class='input' required></div>",
-    "<div class='form-group'><label>Password</label><input type='password' name='password' class='input' required></div>",
-    "<button type='submit' class='btn btn-primary'>Login</button>",
-    "</form>",
-    "<p class='text-sm' style='margin-top:12px'>Default admin login: <code>admin</code> / <code>admin</code></p>",
-    "</div></body></html>",
-);
