@@ -8,14 +8,8 @@ pub mod services;
 pub mod slug;
 pub mod session;
 pub mod events;
-use askama::Template;
-use axum::extract::Path;
+use axum::response::IntoResponse;
 use axum::routing::get;
-use axum::{
-    middleware,
-    response::{Html, IntoResponse, Redirect},
-};
-use tower_http::services::fs::ServeDir;
 use utoipa::OpenApi;
 
 use std::sync::Arc;
@@ -127,113 +121,6 @@ pub struct AppState {
 )]
 pub struct ApiDoc;
 
-// Known app pages that require authentication (both clean and .html forms)
-const PROTECTED_PATHS: &[&str] = &[
-    "/boards", "/settings",
-    "/boards.html", "/board.html", "/settings.html",
-];
-
-async fn require_auth_for_html(
-    request: axum::http::Request<axum::body::Body>,
-    next: middleware::Next,
-) -> axum::response::Response {
-
-    let req_path = request.uri().path().to_string();
-
-    if req_path == "/login" {
-        return next.run(request).await;
-    }
-
-    let is_protected = req_path.ends_with(".html")
-        || PROTECTED_PATHS.contains(&req_path.as_str())
-        || req_path.starts_with("/board/");
-
-    if !is_protected {
-        return next.run(request).await;
-    }
-    
-    // Check session for user_id
-    let session = request.extensions()
-        .get::<tower_sessions::Session>()
-        .cloned();
-    match session {
-        Some(session) => {
-            match session.get::<String>("user_id").await {
-                Ok(Some(_)) => next.run(request).await,
-                _ => Redirect::to("/login").into_response(),
-            }
-        }
-        None => Redirect::to("/login").into_response(),
-    }
-}
-
-// ── Page handlers for clean URLs ─────────────────────────────────────
-
-#[derive(Template)]
-#[template(path = "boards.html")]
-struct BoardsTemplate;
-
-#[derive(Template)]
-#[template(path = "board.html")]
-struct BoardTemplate {
-    board_name: String,
-    board_slug: String,
-}
-
-#[derive(Template)]
-#[template(path = "settings.html")]
-struct SettingsTemplate;
-#[derive(Template)]
-#[template(path = "partials/board_grid.html")]
-pub(crate) struct BoardGridTemplate {
-    boards: Vec<models::board::Board>,
-    query: String,
-}
-
-async fn page_boards() -> impl IntoResponse {
-    Html(BoardsTemplate.render().unwrap())
-}
-
-async fn page_board_with_slug(
-    Path((slug, _name)): Path<(String, String)>,
-) -> impl IntoResponse {
-    let board = BoardTemplate {
-        board_name: _name,
-        board_slug: slug,
-    };
-    Html(board.render().unwrap())
-}
-
-async fn page_board_html() -> impl IntoResponse {
-    let board = BoardTemplate {
-        board_name: String::new(),
-        board_slug: String::new(),
-    };
-    Html(board.render().unwrap())
-}
-
-async fn page_boards_html() -> impl IntoResponse {
-    Html(BoardsTemplate.render().unwrap())
-}
-
-async fn page_settings_html() -> impl IntoResponse {
-    Html(SettingsTemplate.render().unwrap())
-}
-
-async fn page_settings() -> impl IntoResponse {
-    Html(SettingsTemplate.render().unwrap())
-}
-// ── Root path handler ────────────────────────────────────────────────
-
-async fn root_handler(
-    session: tower_sessions::Session,
-) -> impl IntoResponse {
-    match session.get::<String>("user_id").await {
-        Ok(Some(_)) => Redirect::to("/boards"),
-        _ => Redirect::to("/login"),
-    }
-}
-
 pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router {
     let session_store = PgSessionStore::new(pool);
     let session_layer = tower_sessions::SessionManagerLayer::new(session_store)
@@ -259,39 +146,40 @@ pub async fn build_app(pool: sqlx::PgPool, state: Arc<AppState>) -> axum::Router
         .with_state(state);
 
     axum::Router::new()
-        .route("/login", get(handlers::auth::htmx_login_page).post(handlers::auth::htmx_login))
-        .route("/", get(root_handler))
-        .route("/boards", get(page_boards))
-        .route("/boards.html", get(page_boards_html))
-        .route("/board/{slug}/{*name}", get(page_board_with_slug))
-        .route("/board.html", get(page_board_html))
-        .route("/settings", get(page_settings))
-        .route("/settings.html", get(page_settings_html))
         .nest("/api/v1", api)
         .merge(utoipa_swagger_ui::SwaggerUi::new("/api-docs").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .nest_service("/uploads", tower_http::services::fs::ServeDir::new("uploads"))
-        .fallback_service(tower::service_fn(static_or_redirect))
-        .layer(middleware::from_fn(require_auth_for_html))
+        .fallback(spa_handler)
         .layer(session_layer)
         .with_state(app_state)
 }
 
-async fn static_or_redirect(
+async fn spa_handler(
     req: axum::http::Request<axum::body::Body>,
 ) -> Result<axum::response::Response, std::convert::Infallible> {
-    let mut serve_dir = ServeDir::new("static");
+    let mut serve_dir = tower_http::services::fs::ServeDir::new("app/dist");
     match tower::ServiceExt::oneshot(&mut serve_dir, req).await {
         Ok(resp) => {
             if resp.status() == axum::http::StatusCode::NOT_FOUND {
-                Ok(Redirect::to("/").into_response())
+                // SPA client-side routing — serve index.html
+                Ok(axum::response::Html(
+                    include_str!("../app/dist/index.html"),
+                )
+                .into_response())
             } else {
                 Ok(resp.map(axum::body::Body::new))
             }
         }
-        Err(_) => Ok(Redirect::to("/").into_response()),
+        Err(_) => {
+            let not_found = axum::http::Response::builder()
+                .status(404)
+                .body(axum::body::Body::from("Not found"))
+                .unwrap();
+            Ok(not_found)
+        }
     }
-}
 
+}
 
 // ── CLI integration ─────────────────────────────────────────────
 pub mod cli {
