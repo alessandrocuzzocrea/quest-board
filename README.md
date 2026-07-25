@@ -1,11 +1,31 @@
 # quest-board
 
-Kanban board API. Rust backend (Axum + PostgreSQL).
+Kanban board with a Rust API backend (Axum + PostgreSQL) and React SPA frontend (Vite + TypeScript).
+
+## Architecture
+
+```
+quest-board/
+├── app/                # React SPA (Vite + TypeScript)
+│   ├── src/            # Components, API client, tests
+│   └── dist/           # Production build
+├── src/                # Rust API backend
+│   ├── main.rs         # Server startup + routing
+│   ├── db/             # Migration runner + admin seed
+│   ├── error.rs        # Error types
+│   ├── models/         # Domain types (shared with frontend via ts-rs)
+│   ├── handlers/       # HTTP handlers (thin — call services)
+│   └── repository/     # Data access layer (all SQL here)
+├── migrations/         # SQL schema
+├── tests/              # Rust integration tests
+└── bindings/           # Generated TypeScript bindings from Rust types
+```
 
 ## Prerequisites
 
 - Rust 1.85+
 - PostgreSQL 17 (or Docker)
+- [Bun](https://bun.sh) 1.3+
 
 ## Quick start
 
@@ -21,56 +41,68 @@ docker run -d --name quest-pg \
 cp .env.example .env
 # Edit .env and set a random APP_SECRET
 
-# 3. Start the backend
+# 3. Build frontend
+cd app && bun install && bun run build && cd ..
+
+# 4. Start the backend
 cargo run
-# API at http://localhost:3001
+# App at http://localhost:3001
 ```
 
-## Backend auto-reload with cargo watch
+The Rust binary embeds the built SPA via `include_str!`, so step 3 must run before step 4 (or after any frontend change).
 
-The `cargo dev` alias (defined in `.cargo/config.toml`) runs:
+## Development
+
+### Frontend dev server (with hot reload)
 
 ```sh
-cargo watch -w src -x run
+cd app
+bun run dev
+# Vite dev server at http://localhost:5173
+# Proxies /api/* to http://localhost:3001
 ```
 
-This recompiles and restarts the backend whenever a file in `src/` changes.
-Install `cargo-watch` once:
+Run the Rust backend in one terminal and Vite in another. The Vite dev server auto-reloads on file changes.
+
+### Backend auto-reload
 
 ```sh
 cargo install cargo-watch
+cargo dev    # alias for cargo watch -w src -x run
 ```
 
-Then:
+### Frontend tests
 
 ```sh
-cargo dev
+cd app && bun run test
+```
+
+39 tests across API client, auth page, nav bar, and gantt chart components.
+
+### Rust tests
+
+```sh
+cargo test --lib          # unit tests (no DB needed)
+cargo test                # integration tests (PostgreSQL required)
 ```
 
 ## Production build
 
 ```sh
-DATABASE_URL="..." cargo build --release
+cd app && bun run build                      # build SPA to app/dist/
+DATABASE_URL="..." cargo build --release     # embeds SPA in binary
 ./target/release/quest-board
 ```
 
-## Project structure
+## Docker
 
-```
-quest-board/
-├── src/           # Rust API source
-│   ├── main.rs          # server startup + routing
-│   ├── db/              # migration runner
-│   ├── error.rs         # error types
-│   ├── models/          # domain types
-│   ├── handlers/        # HTTP handlers (thin — call repos)
-│   └── repository/      # data access layer (all SQL here)
-├── migrations/          # SQL schema
-├── tests/               # integration tests
-└── .gitignore
+```sh
+docker build -t quest-board .
 ```
 
-## API overview
+Multi-stage build: `oven/bun` builds the frontend, then `rust:slim-bookworm` compiles the backend.
+
+## API
 
 | Route | Methods | Description |
 |---|---|---|
@@ -88,5 +120,10 @@ quest-board/
 | `/api/v1/comments` | POST | Add comment |
 | `/api/v1/labels` | POST | Create label |
 | `/api/v1/search?q=` | GET | Search cards + boards |
+| `/api/v1/events` | GET | SSE stream for real-time updates |
 
-Full list at `src/handlers/`.
+## Tech stack
+
+- **Backend**: Rust, Axum, SQLx (PostgreSQL), tower-sessions
+- **Frontend**: React 19, TypeScript, Vite, @dnd-kit (drag & drop), react-router-dom
+- **Real-time**: Server-Sent Events (SSE)
