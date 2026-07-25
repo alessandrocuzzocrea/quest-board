@@ -25,6 +25,22 @@ quest-board/
 
 - Rust 1.85+
 - PostgreSQL 17 (or Docker)
+
+## Dev container (VS Code / Codespaces)
+
+Open the repo in a Codespace or re-open in container:
+
+```sh
+# The devcontainer sets up:
+#   - Rust + cargo, Bun, PostgreSQL (Docker)
+#   - VS Code extensions (rust-analyzer, ESLint, Prettier, Tailwind)
+#   - Port forwarding: 3001 (backend), 5173 (frontend dev server)
+#
+# After the container starts:
+cd app && bun run dev   # frontend hot-reload
+# In another terminal:
+cargo run               # backend API
+```
 - [Bun](https://bun.sh) 1.3+
 
 ## Quick start
