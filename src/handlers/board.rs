@@ -1,7 +1,5 @@
-use askama::Template;
 use axum::extract::{Path, State};
 use axum::http::HeaderMap;
-use axum::response::{Html, IntoResponse};
 use axum::routing::get;
 use axum::{Json, Router};
 use std::sync::Arc;
@@ -16,7 +14,6 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_boards).post(create_board))
         .route("/{id}", get(get_board).put(update_board).delete(delete_board))
         .route("/by-slug/{slug}", get(get_board_by_slug))
-        .route("/html", get(list_boards_html))
 }
 
 async fn user_id(session: tower_sessions::Session, headers: HeaderMap, pool: &sqlx::PgPool) -> Result<uuid::Uuid, AppError> {
@@ -34,22 +31,6 @@ async fn list_boards(
     let boards = svc.list_accessible(&uid).await?;
     Ok(Json(serde_json::json!(boards)))
 }
-
-/// HTML endpoint — returns board cards as HTML for htmx `hx-trigger="load"`.
-async fn list_boards_html(
-    State(state): State<Arc<AppState>>,
-    session: tower_sessions::Session,
-    headers: HeaderMap,
-) -> Result<impl IntoResponse, AppError> {
-    let uid = user_id(session, headers, &state.db).await?;
-    let svc = BoardService::new(state.db.clone());
-    let boards = svc.list_accessible(&uid).await?;
-    let tmpl = crate::BoardGridTemplate { boards, query: String::new() };
-    Ok(Html(
-        tmpl.render().map_err(|e| AppError::Internal(e.to_string()))?,
-    ))
-}
-
 #[utoipa::path(post, path = "/api/v1/boards", tag = "boards", request_body = CreateBoardRequest, responses((status = 200, body = serde_json::Value)))]
 async fn create_board(
     State(state): State<Arc<AppState>>,
