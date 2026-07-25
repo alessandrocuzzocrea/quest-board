@@ -62,6 +62,8 @@ describe('NavBar', () => {
     const mockLogout = vi.fn()
     vi.mocked(AppModule.useAuth).mockReturnValueOnce({
       user: { id: '1', username: 'bob', role: 'user' },
+      loading: false,
+      refresh: vi.fn(),
       logout: mockLogout,
     })
 
