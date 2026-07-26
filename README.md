@@ -21,10 +21,20 @@ quest-board/
 └── bindings/           # Generated TypeScript bindings from Rust types
 ```
 
-## Prerequisites
+## Quick start (Docker Compose)
+
+```sh
+docker compose up -d
+# App at http://localhost:3001
+```
+
+Starts both the app and PostgreSQL. The app runs migrations on startup and serves the full UI at `:3001`.
+
+## Prerequisites (local development)
 
 - Rust 1.85+
-- PostgreSQL 17 (or Docker)
+- [Bun](https://bun.sh) 1.3+
+- Docker (for PostgreSQL — or run Postgres 17 natively)
 
 ## Dev container (VS Code / Codespaces)
 
@@ -32,7 +42,7 @@ Open the repo in a Codespace or re-open in container:
 
 ```sh
 # The devcontainer sets up:
-#   - Rust + cargo, Bun, PostgreSQL (Docker)
+#   - Rust + cargo, Bun, PostgreSQL (Docker Compose)
 #   - VS Code extensions (rust-analyzer, ESLint, Prettier, Tailwind)
 #   - Port forwarding: 3001 (backend), 5173 (frontend dev server)
 #
@@ -41,31 +51,6 @@ cd app && bun run dev   # frontend hot-reload
 # In another terminal:
 cargo run               # backend API
 ```
-- [Bun](https://bun.sh) 1.3+
-
-## Quick start
-
-```sh
-# 1. Start PostgreSQL
-docker run -d --name quest-pg \
-  -e POSTGRES_PASSWORD=quest \
-  -e POSTGRES_DB=quest \
-  -p 5432:5432 \
-  postgres:17
-
-# 2. Set up environment
-cp .env.example .env
-# Edit .env and set a random APP_SECRET
-
-# 3. Build frontend
-cd app && bun install && bun run build && cd ..
-
-# 4. Start the backend
-cargo run
-# App at http://localhost:3001
-```
-
-The Rust binary embeds the built SPA via `include_str!`, so step 3 must run before step 4 (or after any frontend change).
 
 ## Development
 
@@ -94,13 +79,19 @@ cd app && bun run test
 ```
 
 39 tests across API client, auth page, nav bar, and gantt chart components.
-
-### Rust tests
+## Docker
 
 ```sh
-cargo test --lib          # unit tests (no DB needed)
-cargo test                # integration tests (PostgreSQL required)
+# Build the image
+docker build -t quest-board .
+
+# Full stack (app + PostgreSQL)
+docker compose up -d
 ```
+
+The `docker-compose.yml` also starts PostgreSQL automatically. The app runs migrations on startup and listens on `:3001`.
+
+Multi-stage build: `oven/bun` builds the frontend, then `rust:slim-bookworm` compiles the backend.
 
 ## Production build
 
@@ -109,14 +100,6 @@ cd app && bun run build                      # build SPA to app/dist/
 DATABASE_URL="..." cargo build --release     # embeds SPA in binary
 ./target/release/quest-board
 ```
-
-## Docker
-
-```sh
-docker build -t quest-board .
-```
-
-Multi-stage build: `oven/bun` builds the frontend, then `rust:slim-bookworm` compiles the backend.
 
 ## API
 

@@ -19,10 +19,7 @@
     "bun": "curl -fsSL https://bun.sh/install | bash",
     "frontend-deps": "bash -c 'source ~/.bashrc && cd app && bun install'"
   },
-  "postStartCommand": {
-    "postgres": "docker run -d --name quest-pg -e POSTGRES_PASSWORD=quest -e POSTGRES_DB=quest -p 5432:5432 postgres:17",
-    "wait-db": "bash -c 'for i in $(seq 1 30); do nc -z 127.0.0.1 5432 && echo DB ready && break; sleep 1; done'"
-  },
+  "postStartCommand": "docker compose up -d db --wait",
   "customizations": {
     "vscode": {
       "extensions": [
