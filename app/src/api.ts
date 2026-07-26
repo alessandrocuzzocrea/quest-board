@@ -58,6 +58,8 @@ export const API = {
   updateTask:     (cardId: string, tlId: string, taskId: string, data: { name?: string; is_done?: boolean }) => request<unknown>('PUT', `/cards/${cardId}/task-lists/${tlId}/tasks/${taskId}`, data),
   deleteTask:     (cardId: string, tlId: string, taskId: string) => request<unknown>('DELETE', `/cards/${cardId}/task-lists/${tlId}/tasks/${taskId}`),
 
+  search: (q: string) => request<{ cards: unknown[]; boards: { id: string; name: string }[] }>('GET', `/search?q=${encodeURIComponent(q)}`),
+
   createComment: (data: { card_id: string; text: string }) => request<unknown>('POST', '/comments', data),
 
   listBoardLabels: (boardId: string) => request<Label[]>('GET', `/labels/board/${boardId}`),
