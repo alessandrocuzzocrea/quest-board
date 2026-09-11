@@ -45,7 +45,7 @@ tower-sessions-core = "0.15"
 
 reqwest = { version = "0.12", default-features = false, features = ["json", "cookies", "rustls-tls"] }
 rpassword = "7"
-dirs = "6"
+dirs = "7"
 
 utoipa = { version = "5", features = ["axum_extras", "uuid", "chrono", "time", "yaml"] }
 utoipa-swagger-ui = { version = "9", features = ["axum"] }
